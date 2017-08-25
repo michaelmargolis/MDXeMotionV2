@@ -62,6 +62,7 @@ class InputInterface(object):
 
     def __init__(self):
         self.rootTitle = "Chair Test Client"
+        self.levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         if InputParmType == 'normalized':
             self.is_normalized = True
             print 'Expecting normalized input parameters'
@@ -71,15 +72,17 @@ class InputInterface(object):
         print
         #  additional client init code goes here
 
-    def init_gui(self, root, limits):
+    def init_gui(self, root):
         pass
 
     def chair_status_changed(self, chair_status):
-        print chair_status[0]
+        pass
 
-    def begin(self, cmd_func, move_func):
+    def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
         self.move_func = move_func
+        self.limits = limits    # note limits are in mm and radians
+
         print "enter 'enable' to enable platform"
         print "enter 'disable' to disable platform"
         print "enter 'exit' to exit"
@@ -88,6 +91,9 @@ class InputInterface(object):
         #  client exit code goes here
         pass
 
+    def get_current_pos(self):
+        return self.levels
+        
     def service(self):
         #  get command or move request from the keyboard
         #  move request expects translations as mm and angles as radians

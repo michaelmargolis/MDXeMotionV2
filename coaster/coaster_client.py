@@ -53,6 +53,7 @@ class State(object):
     def coaster_event(self, event):
         if event != self.prev_event:
             self.prev_event = event
+            print event
 
         if self.is_chair_active:
             if event == CoasterEvent.STOPPED and self._state != MoveState.READY_FOR_DISPATCH:
@@ -110,9 +111,33 @@ class InputInterface(object):
         self.coasterState = State(self.process_state_change)
         self.rootTitle = "NL2 Coaster Ride Controller"  # the display name in tkinter
 
-    def init_gui(self, master, limits):
-        self.gui.init_gui(master, limits)
+    def init_gui(self, master):
+        self.gui.init_gui(master, self.limits)
         self.master = master
+        
+        while not self.coaster.is_NL2_accessable():
+            self.master.update_idletasks()
+            self.master.update()
+            result = tkMessageBox.askquestion("Waiting for NoLimits Coaster", "Coaster Sim not found, Start NoLimits and press Yes to retry, No to quit", icon='warning')
+            if result == 'no':
+                sys.exit(0)
+
+        while True:
+            self.master.update_idletasks()
+            self.master.update()
+            if self.coaster.connect_to_coaster():
+                #  print "connected"
+                self.coaster.set_manual_mode()
+                break
+            else:
+                print "Failed to connect to coaster"
+                print "Use shortcut to run NoLimits2 in Telemetry mode"
+
+        if self.coaster.is_NL2_accessable():
+            self.gui.set_coaster_connection_label(("Coaster Software Connected", "green3"))
+        else:
+            self.gui.set_coaster_connection_label(("Coaster Software Not Found"
+                                                "(start NL2 or maximize window if already started)", "red"))
 
     def _sleep_func(self, duration):
         start = time.time()
@@ -193,8 +218,9 @@ class InputInterface(object):
         self.gui.set_activation_buttons(False)
         self.is_chair_activated = False
         self.coasterState.set_is_chair_active(False)
-        if self.coasterState.state == MoveState.RUNNING:
-            self.pause()
+        if self.coasterState.state == MoveState.RUNNING or self.coasterState.state == MoveState.PAUSED:
+            if self.coasterState.state != MoveState.PAUSED:
+                self.pause()
             print 'emergency stop '
             self.coasterState.coaster_event(CoasterEvent.ESTOPPED)
         else:
@@ -227,33 +253,11 @@ class InputInterface(object):
             self.command("disembark")
         self.gui.process_state_change(new_state, self.is_chair_activated)
 
-    def begin(self, cmd_func, move_func):
+    def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
         self.move_func = move_func
+        self.limits = limits
         self.coaster.begin()
-        while not self.coaster.is_NL2_accessable():
-            self.master.update_idletasks()
-            self.master.update()
-            result = tkMessageBox.askquestion("Waiting for NoLimits Coaster", "Coaster Sim not found, Start NoLimits and press Yes to retry, No to quit", icon='warning')
-            if result == 'no':
-                sys.exit(0)
-
-        while True:
-            self.master.update_idletasks()
-            self.master.update()
-            if self.coaster.connect_to_coaster():
-                #  print "connected"
-                self.coaster.set_manual_mode()
-                break
-            else:
-                print "Failed to connect to coaster"
-                print "Use shortcut to run NoLimits2 in Telemetry mode"
-
-        if self.coaster.is_NL2_accessable():
-            self.gui.set_coaster_connection_label(("Coaster Software Connected", "green3"))
-        else:
-            self.gui.set_coaster_connection_label(("Coaster Software Not Found"
-                                                "(start NL2 or maximize window if already started)", "red"))
 
     def fin(self):
         # client exit code goes here

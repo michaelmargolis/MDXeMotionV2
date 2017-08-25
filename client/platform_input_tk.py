@@ -53,6 +53,7 @@ class InputInterface(object):
         self.cmd_func = None
         self.move_func = None
         self.rootTitle = "Chair Test Client"
+        self.levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         if InputParmType == 'normalized':
             self.is_normalized = True
@@ -63,15 +64,13 @@ class InputInterface(object):
         print
         #  additional client init code goes here
 
-    def init_gui(self, master, limits):
-        self.limits = limits    # note limits are in mm and radians
+    def init_gui(self, master):        
         self.master = master
         frame = tk.Frame(master)
         frame.pack()
 
         self.label0 = tk.Label(frame, text="Adjust Translation and Rotation")
         self.label0.pack(fill=tk.X, pady=10)
-        self.levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         sLabels = ("X", "Y", "Z", "R", "P", "Y")
         for i in range(6):
             s = tk.Scale(frame, from_=1, to=-1, resolution=0.1, length=120,
@@ -112,9 +111,10 @@ class InputInterface(object):
         if self.move_func:
             self.move_func(self.levels)
 
-    def begin(self, cmd_func, move_func):
+    def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
         self.move_func = move_func
+        self.limits = limits
 
     def fin(self):
         # client exit code goes here

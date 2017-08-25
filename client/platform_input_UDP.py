@@ -31,15 +31,16 @@ class InputInterface(object):
         self.is_normalized = False
         print 'Platform Input is UDP with realworld parameters'
 
-    def init_gui(self, root, limits):
+    def init_gui(self, root):
         pass
 
     def chair_status_changed(self, chair_status):
         print(chair_status[0])
 
-    def begin(self, cmd_func, move_func):
+    def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
         self.move_func = move_func
+        self.limits = limits    # note limits are in mm and radians
 
     def fin(self):
         # client exit code goes here
@@ -51,25 +52,25 @@ class InputInterface(object):
         print "Waiting for UDP message on port", 10009
         try:
             msg = self.client.recv(self.MAX_MSG_LEN)
-            print "incoming msg:", msg
-            fields = msg.split(",")
-            field_list = list(fields)
-            if field_list[0] == "xyzrpy":
-                try:
-                    r = [float(f) for f in field_list[1:7]]
-                    r[3] = radians(r[3])
-                    r[4] = radians(r[4])
-                    r[5] = radians(r[5])
-                    #  print r
-                    self.move_func(r)
-                except:  # if not a list of floats, process as command
-                    e = sys.exc_info()[0]
-                    print e
-            elif field_list[0] == "command":
-                #  print "command is {%s}, len = %d:" %( field_list[1], len(field_list[1]))
-                self.cmd_func(field_list[1])
+            if msg is not None:
+                msg = msg.rstrip()
+                print "incoming msg:", msg
+                fields = msg.split(",")
+                field_list = list(fields)
+                if field_list[0] == "xyzrpy":
+                    try:
+                        r = [float(f) for f in field_list[1:7]]
+                        r[3] = radians(r[3])
+                        r[4] = radians(r[4])
+                        r[5] = radians(r[5])
+                        #  print r
+                        self.move_func(r)
+                    except:  # if not a list of floats, process as command
+                        e = sys.exc_info()[0]
+                        print e
+                elif field_list[0] == "command":
+                    #  print "command is {%s}, len = %d:" %( field_list[1], len(field_list[1]))
+                    self.cmd_func(field_list[1])
         except socket.timeout:
             pass
-        except:
-            e = sys.exc_info()[0]
-            print e
+

@@ -19,7 +19,7 @@ from platform_input_tk import InputInterface   #  tkinter gui
 #  from platform_input import InputInterface    #  keyboard
 #  from platform_input_UDP import InputInterface #  UDP
 #  from platform_input_threadedUDP import InputInterface #  threaded UDP
-#from coaster_client import InputInterface
+#  from coaster_client import InputInterface
 from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface
@@ -37,10 +37,12 @@ class Controller:
 
     def __init__(self):
         self.prevT = 0
+        self.is_output_enabled = False
         geometry = chair.get_geometry()
         k.set_geometry( geometry[0],geometry[1],geometry[2])
-        shape.begin(chair.get_limits(), "shape.cfg")
-        self.is_output_enabled = False
+        limits = chair.get_limits()
+        shape.begin(limits, "shape.cfg")
+        client.begin(self.cmd_func, self.move_func, limits)
 
     def init_gui(self, root):
         self.root = root
@@ -58,7 +60,7 @@ class Controller:
         nb.add(page3, text='  Output ')
         nb.pack(expand=1, fill="both")
 
-        client.init_gui(page1, chair.get_limits())  # give client: min max input values
+        client.init_gui(page1)
         shape.init_gui(page2)
         chair.init_gui(page3)
 
@@ -107,7 +109,7 @@ class Controller:
         start = time.time()
         #  print "req= " + " ".join('%0.2f' % item for item in position_request)
         actuator_lengths = k.inverse_kinematics(position_request)
-        if client.USE_GUI:           
+        if client.USE_GUI:
             chair.show_muscles(position_request, actuator_lengths)
             controller.update_gui()
         chair.move_platform(actuator_lengths)
@@ -115,34 +117,32 @@ class Controller:
         #  print "dur =",  time.time() - start, "interval= ",  time.time() - self.prevT
         #  self.prevT =  time.time()
 
+    def cmd_func(self, cmd):  # command handler function called from Platform input
+        global isActive
+        if cmd == "exit":
+            isActive = False
+        elif cmd == "enable":
+            controller.enable_platform()
+        elif cmd == "disable":
+            controller.disable_platform()
+        elif cmd == "swellForStairs":
+            controller.swell_for_access()
+        elif cmd == "quit":
+            # prompts with tk msg box to confirm 
+            controller.quit() 
+
+    def move_func(self, request):  # move handler to position platform as requested by Platform input
+        #  print "request is trans/rot list:", request
+        try:
+            request = np.array(request)
+            r = controller.process_request(request)
+            controller.move(r)
+        except:
+            e = sys.exc_info()[0]  # report error
+            s = traceback.format_exc()
+            print e, s
+
 controller = Controller()
-
-
-def cmd_func(cmd):  # command handler function cposition_requested from Platform input
-    global isActive
-    if cmd == "exit":
-        isActive = False
-    elif cmd == "enable":
-        controller.enable_platform()
-    elif cmd == "disable":
-        controller.disable_platform()
-    elif cmd == "swellForStairs":
-        controller.swell_for_access()
-    elif cmd == "quit":
-        # prompts with tk msg box to confirm 
-        controller.quit() 
-
-
-def move_func(request):  # move handler position requested by Platform input
-    #  print "request is trans/rot list:", request
-    try:
-        request = np.array(request)
-        r = controller.process_request(request)
-        controller.move(r)
-    except:
-        e = sys.exc_info()[0]  # report error
-        s = traceback.format_exc()
-        print e, s
 
 
 def main():
@@ -155,7 +155,6 @@ def main():
         client.USE_GUI = False
         print "GUI Disabled"
 
-    client.begin(cmd_func, move_func)
     previous = time.time()
     chair_status = None
     while isActive:

@@ -94,10 +94,12 @@ class OutputInterface(object):
                 self.FSTs.settimeout(1)  # timout after 1 second if no response
         print ""
         self.prevMsg = []
-        self.gui = OutputGui()
+        self.use_gui = False # defualt is no gui
         
     def init_gui(self, master):
+        self.gui = OutputGui()
         self.gui.init_gui(master, MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN)
+        self.use_gui = True
          
     def fin(self):
         """
@@ -223,7 +225,8 @@ class OutputInterface(object):
         """
 
     def show_muscles(self,position_request, muscles):
-        self.gui.show_muscles(position_request, muscles)
+        if self.use_gui:
+           self.gui.show_muscles(position_request, muscles)
         
     #  private methods
     def _slow_move(self, start, end, duration):
