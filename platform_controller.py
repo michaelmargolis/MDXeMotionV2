@@ -15,11 +15,11 @@ from math import degrees
 sys.path.insert(0, './client')  # the relative dir containing client files
 sys.path.insert(0, './coaster')  # the relative dir containing coaster files
 
-from platform_input_tk import InputInterface   #  tkinter gui
+#  from platform_input_tk import InputInterface   #  tkinter gui
 #  from platform_input import InputInterface    #  keyboard
 #  from platform_input_UDP import InputInterface #  UDP
 #  from platform_input_threadedUDP import InputInterface #  threaded UDP
-#  from coaster_client import InputInterface
+from coaster_client import InputInterface
 from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface
@@ -160,13 +160,14 @@ def main():
     while isActive:
         if client.USE_GUI:
             controller.update_gui()
-        if(time.time() - previous > frameRate):
+        if(time.time() - previous >= frameRate *.99):
+            #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))
             previous = time.time()
             if chair_status != chair.get_output_status():
                 chair_status = chair.get_output_status()
                 client.chair_status_changed(chair_status)
             client.service()
-            #  print "in controller, service took", time.time() - previous
+            #  print format("in controller, service took %.1f ms" % ((time.time() - previous) * 1000))
 
 
 if __name__ == "__main__":

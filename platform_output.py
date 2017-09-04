@@ -34,8 +34,8 @@ from ConfigV2 import *
 #  from ConfigServoSimChair import *
 
 PRINT_MUSCLES = False
-
-OLD_FESTO_CONTROLLER = True
+WAIT_FESTO_RESPONSE = False
+OLD_FESTO_CONTROLLER = False
 
 if TESTING:
     print "THIS IS TESTING MODE, no output to Festo!!!"
@@ -51,13 +51,13 @@ else:
         if OLD_FESTO_CONTROLLER:
             FST_port = 991
             FST_ip = '192.168.10.10'
-            print "opening old controller socket at",  FST_ip, FST_port
+            print "using old Festo controller socket at",  FST_ip, FST_port
         else:
             # Set the socket parameters
             FST_ip = '192.168.0.10'
-            FST_port = 1000 + easyip.EASYIP_PORT
+            FST_port = easyip.EASYIP_PORT
             bufSize = 1024
-            print "opening new controller socket at",  FST_ip, FST_port
+            print "using new Festo controller socket at",  FST_ip, FST_port
 
 
 class OutputInterface(object):
@@ -88,7 +88,7 @@ class OutputInterface(object):
                 print "unable to open Out simulator serial port", OutSerialPort
         elif not TESTING:
             self.FSTs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.FST_addr = (FST_ip, FST_port)
+            self.FST_addr = (FST_ip, FST_port)         
             if not OLD_FESTO_CONTROLLER:
                 self.FSTs.bind(('0.0.0.0', 0))
                 self.FSTs.settimeout(1)  # timout after 1 second if no response
@@ -139,7 +139,7 @@ class OutputInterface(object):
         if OLD_FESTO_CONTROLLER:
             return ("Old Festo Controller", "green3")
         else:
-            if position_request(v == 0 for v in self.actual_pressures):
+            if 0 in self.actual_pressures:
                 return ("Festo Pressure is Zero", "orange")
             else:
                 return ("Festo Pressure is Good", "green3")  # todo, also check if pressure is low
@@ -362,7 +362,8 @@ class OutputInterface(object):
                     packet = easyip.Factory.send_flagword(0, muscle_pressures)
                     try:
                         self._send_packet(packet)
-                        self.actual_pressures = self._get_pressure()
+                        if WAIT_FESTO_RESPONSE:
+                            self.actual_pressures = self._get_pressure()
                     except socket.timeout:
                         print "timeout waiting for replay from", self.FST_addr
 
@@ -384,18 +385,19 @@ class OutputInterface(object):
             data = packet.pack()
             self.FSTs.sendto(data, self.FST_addr)
             #  print "sending to", self.FST_addr
-            print "in sendpacket,waiting for response..."
-            data, srvaddr = self.FSTs.recvfrom(bufSize)
-            resp = easyip.Packet(data)
-            print "in senddpacket, response from Festo", resp
-            if packet.response_errors(resp) is None:
-                print "No send Errors"
-            else:
-                print "errors=%r" % packet.response_errors(resp)
-            return resp
+            if WAIT_FESTO_RESPONSE:
+                print "in sendpacket,waiting for response..."
+                data, srvaddr = self.FSTs.recvfrom(bufSize)
+                resp = easyip.Packet(data)
+                print "in senddpacket, response from Festo", resp
+                if packet.response_errors(resp) is None:
+                    print "No send Errors"
+                else:
+                    print "errors=%r" % packet.response_errors(resp)
+                return resp
 
     def _get_pressure(self):
-        # fist arg is the number of requests your making. Leave it as 1 always
+        # first arg is the number of requests your making. Leave it as 1 always
         # Second arg is number of words you are requesting (probably 6, or 16)
         # third arg is the offset.
         # words 0-5 are what you sent it.
