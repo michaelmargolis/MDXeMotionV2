@@ -9,16 +9,13 @@
     p is pitch in degrees (+ is nose down)
     y is yaw in degrees (+ is CCW)
 
-    commands are entered as text:
-       enable  enables the platform to move
-       disable prevents the platform from moving
-       exit    terminates the python program
+    This module sends system commands or movement requests through callback
+    methods  named cmd_func amd move_func that are passed in the begin method.
+    
+    The controller will poll this module at regular intervals (currently 50ms)
+    for movement requests or system commands.
 
-    The platform controller communicates with this client through calls
-    to a function named service. This function recieves two parameters,
-    the first is the function to be called to execute a command, the second
-    parameter is the function to cposition_request with movement requests.
-
+    Movement requests have six parameters:
      x,y,z,r,p,y
     x is forward/back movement in millimeters (+ is forward)
     y is side to side movement in mm (+ is left)
@@ -47,6 +44,11 @@
     Note that gain and washout are not available when using real world values
 
     The minimum interval between calls to recieve requests is 50 milliseconds
+    
+    System commands are entered as text:
+       enable  enables the platform to move
+       disable prevents the platform from moving
+       exit    terminates the python program
 """
 
 from math import radians
