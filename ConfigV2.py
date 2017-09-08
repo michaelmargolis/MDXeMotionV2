@@ -64,8 +64,8 @@ MAX_ACTUATOR_LEN = 200+MAX_MUSCLE_LEN       # total max actuator distance includ
 MAX_ACTUATOR_RANGE = MAX_ACTUATOR_LEN - MIN_ACTUATOR_LEN
 MID_ACTUATOR_LEN = MIN_ACTUATOR_LEN + (MAX_ACTUATOR_RANGE/2)
 
-DISABLED_LEN = MAX_ACTUATOR_LEN *.98
-WINDDOWN_LEN = MAX_ACTUATOR_LEN *.90  # length to enable fitting of stairs
+DISABLED_LEN = 200 + MAX_MUSCLE_LEN *.999
+WINDDOWN_LEN = MAX_ACTUATOR_LEN *.95  # length to enable fitting of stairs
 
 #  uncomment this to define attachment locations using angles and distance from origin (vectors)
 """

@@ -67,7 +67,7 @@ class OutputGui(object):
         self.top_canvas_obj = self.chair_img_canvas.create_image(
                 130, 50, image=self.chair_top_img)
 
-    def show_muscles(self, position_request, muscles):
+    def show_muscles(self, position_request, muscles, pressure_percent):
         for idx, m in enumerate(muscles):
             n = copy.copy(self.normalize(m))                       
             new_y1 = self.max_rectlen +((n+1) * self.max_rectlen * 0.125)
@@ -75,7 +75,7 @@ class OutputGui(object):
             #print m,n, _percent, new_y1
             x0, y0, x1, y1 = self.muscle_canvas.coords(self.muscle_rect[idx])           
             self.muscle_canvas.coords(self.muscle_rect[idx], x0, y0, x1, new_y1)
-            info = "length %d is %-3d (%d)%  %" % (idx, int(m-200), _percent)
+            info = "length %d is %-3d (%d)%% [P%%=%d]" % (idx, int(m-200), _percent,  pressure_percent[idx])
             if _percent < -100 or _percent > 100:
                 color = "red"
             else:

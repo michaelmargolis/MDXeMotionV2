@@ -81,16 +81,24 @@ class Controller:
         actuator_lengths = k.inverse_kinematics(self.process_request(pos))
         #  print "cp", pos, "->",actuator_lengths
         chair.set_enable(True, actuator_lengths)
-        self.is_output_enabled = True        
+        self.is_output_enabled = True
         #  print "enable", pos
 
-    def disable_platform(self):             
+    def disable_platform(self):
         pos = client.get_current_pos()
         #  print "disable", pos
         actuator_lengths = k.inverse_kinematics(self.process_request(pos))
         chair.set_enable(False, actuator_lengths)
         self.is_output_enabled = False
-
+    
+    def move_to_idle(self):
+        actuator_lengths = k.inverse_kinematics(self.process_request(client.get_current_pos()))
+        chair.move_to_idle(actuator_lengths)
+        
+    def move_to_ready(self):
+        actuator_lengths = k.inverse_kinematics(self.process_request(client.get_current_pos()))
+        chair.move_to_ready(actuator_lengths)
+        
     def swell_for_access(self):
         chair.swell_for_access(4)  # four seconds in up pos
 
@@ -125,6 +133,10 @@ class Controller:
             controller.enable_platform()
         elif cmd == "disable":
             controller.disable_platform()
+        elif cmd == "idle":
+            controller.move_to_idle()
+        elif cmd == "ready":
+            controller.move_to_ready()
         elif cmd == "swellForStairs":
             controller.swell_for_access()
         elif cmd == "quit":

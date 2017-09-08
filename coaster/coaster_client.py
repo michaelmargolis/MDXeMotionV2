@@ -53,7 +53,7 @@ class State(object):
     def coaster_event(self, event):
         if event != self.prev_event:
             self.prev_event = event
-            print event
+            #print event
 
         if self.is_chair_active:
             if event == CoasterEvent.STOPPED and self._state != MoveState.READY_FOR_DISPATCH:
@@ -164,8 +164,8 @@ class InputInterface(object):
             print 'dispatch'
             self.coasterState.coaster_event(CoasterEvent.DISPATCHED)
             self.coaster.close_harness()
-            #  self.command("activate")
-            self._sleep_func(2)
+            self.command("ready")  # slow rise of platform
+            #  self._sleep_func(1)
             self.coaster.dispatch()
             self.prev_movement_time = time.time()  # set time that train started to move
 
@@ -250,7 +250,8 @@ class InputInterface(object):
     def process_state_change(self, new_state):
         if new_state == MoveState.READY_FOR_DISPATCH and self.is_chair_activated:
             #  here at the end of a ride
-            self.command("disembark")
+            self.command("idle")  # slow drop of platform
+
         self.gui.process_state_change(new_state, self.is_chair_activated)
 
     def begin(self, cmd_func, move_func, limits):

@@ -34,25 +34,30 @@ class SerialRemote(object):
 
         self.RxQ = RxQ
         self.ser = ser
+        port = None
+        while port == None:
+            port = self._search()
+        self.RxQ.put("Detected Remote Control on %s" % port)
+        while True:
+            #  wait forever for data to forward to client
+            try:
+                result = self.ser.readline()
+                if len(result) > 0:
+                    self.RxQ.put(result)
+            except:
+                print "serial error, trying to reconnect"
+                self.RxQ.put("Reconnect Remote Control")
+                while True:
+                    if self._connect(port):
+                        print "sending detected msg"
+                        self.RxQ.put("Detected Remote Control on %s" % port)
+                        break
+    def _search(self):
         for p in sorted(list(serial.tools.list_ports.comports())):
             self.RxQ.put("Looking for Remote on %s" % p[0])
             if self._connect(p[0]):
-                #  print "found remote on ",p[0]
-                self.RxQ.put("Detected Remote Control on %s" % p[0])
-                while True:
-                    #  wait forever for data to forward to client
-                    try:
-                        result = self.ser.readline()
-                        if len(result) > 0:
-                            self.RxQ.put(result)
-                    except:
-                        print "serial error, trying to reconnect"
-                        self.RxQ.put("Reconnect Remote Control")
-                        while True:
-                            if self._connect(p[0]):
-                                print "sending detected msg"
-                                self.RxQ.put("Detected Remote Control on %s" % p[0])
-                                break
+                return p[0]
+        return None
 
     def _connect(self, portName):
         # Private method try and connect to the given portName.
@@ -78,6 +83,8 @@ class SerialRemote(object):
 
             while True:
                 result = self.ser.readline()
+                if len(result) > 1:
+                    print "serial data:", result
                 if SerialRemote.auto_conn_str in result or "deactivate" in result:
                     self.connected = True
                     return True

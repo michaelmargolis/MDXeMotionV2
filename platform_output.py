@@ -34,7 +34,8 @@ from ConfigV2 import *
 #  from ConfigServoSimChair import *
 
 PRINT_MUSCLES = False
-WAIT_FESTO_RESPONSE = False
+PRINT_PRESSURE_DELTA = True
+WAIT_FESTO_RESPONSE = True
 OLD_FESTO_CONTROLLER = False
 
 if TESTING:
@@ -78,7 +79,9 @@ class OutputInterface(object):
         self.prev_pos = [0, 0, 0, 0, 0, 0]  # requested distances stored here
         self.requested_pressures = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.actual_pressures = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.pressure_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.prev_time = time.clock()
+        self.netlink_ok = False # True if fest responds without error
         if IS_SERIAL:
             #  configure the serial connection
             try:
@@ -139,10 +142,28 @@ class OutputInterface(object):
         if OLD_FESTO_CONTROLLER:
             return ("Old Festo Controller", "green3")
         else:
-            if 0 in self.actual_pressures:
-                return ("Festo Pressure is Zero", "orange")
-            else:
-                return ("Festo Pressure is Good", "green3")  # todo, also check if pressure is low
+            if WAIT_FESTO_RESPONSE:
+                if not self.netlink_ok:
+                    return ("Festo network error (check ethernet cable and festo power)", "red")
+                else:    
+                    bad = []
+                    if 0 in self.actual_pressures:
+                        for idx, v in enumerate(self.actual_pressures):
+                           if v == 0:
+                              bad.append(idx)
+                        if len(bad) == 6:
+                           return ("Festo Pressure Zero on all muscles", "red")
+                        else:
+                           bad_str = ','.join(map(str, bad))                   
+                           return ("Festo Pressure Zero on muscles: " + bad_str, "red")
+                    elif any(p < 10 for p in self.pressure_percent):
+                        return ("Festo Pressure is Low", "orange")
+                    elif any(p < 10 for p in self.pressure_percent):
+                        return ("Festo Pressure is High", "orange")
+                    else:
+                        return ("Festo Pressure is Good", "green3")  # todo, also check if pressure is low
+            else:        
+                return ("New Festo controller response not enabled", "orange")
 
     def get_platform_mid_height(self):
         """
@@ -184,6 +205,14 @@ class OutputInterface(object):
         """
         self.moveTo([p*l for p, l in zip(pos, self.limits)])
 
+    def move_to_idle(self, client_pos):
+       self._slow_move(client_pos, self.platform_disabled_pos, 1000)
+       print "move to idle"
+
+    def move_to_ready(self, client_pos):
+        self._slow_move(self.platform_disabled_pos, client_pos, 1000)
+        print "move to ready"
+
     def swell_for_access(self, interval):
         """
         Briefly raises platform high enough to insert access stairs
@@ -224,9 +253,9 @@ class OutputInterface(object):
             print "Platform Disabled"
         """
 
-    def show_muscles(self,position_request, muscles):
+    def show_muscles(self, position_request, muscles):
         if self.use_gui:
-           self.gui.show_muscles(position_request, muscles)
+           self.gui.show_muscles(position_request, muscles, self.pressure_percent)
         
     #  private methods
     def _slow_move(self, start, end, duration):
@@ -245,7 +274,7 @@ class OutputInterface(object):
             print "moving from", start, "to", end, "steps", steps
             delta = [float(e - s)/steps for s, e in zip(start, end)]
             for step in xrange(steps):
-                current = [x + y for x, y in zip(current, delta)]                
+                current = [x + y for x, y in zip(current, delta)]
                 move_func(copy.copy(current))
                 self.show_muscles([0,0,0,0,0,0], current)
                 time.sleep(interval / 1000.0)
@@ -325,6 +354,7 @@ class OutputInterface(object):
         self._send(pressure)
 
     def _convert_MM_to_pressure(self, idx, distance, timeDelta, load):
+        #  returns pressure in bar
         #  global MAX_MUSCLE_LEN, MAX_ACTUATOR_LEN
         #  calculate the percent of muscle contraction to give the desired distance
         percent = 1-(distance + MAX_MUSCLE_LEN - MAX_ACTUATOR_LEN) / MAX_MUSCLE_LEN
@@ -352,6 +382,9 @@ class OutputInterface(object):
                       % (idx, distDelta, distance, accel, force, pressure))
 
         self.prev_pos[idx] = distance  # store the distance
+        MAX_PRESSURE = 6.0 
+        MIN_PRESSURE = .05  # 50 millibar is minimin pressure
+        pressure = max(min(MAX_PRESSURE, pressure), MIN_PRESSURE)  # limit range 
         return pressure
 
     def _send(self, muscle_pressures):
@@ -361,9 +394,15 @@ class OutputInterface(object):
                 if not OLD_FESTO_CONTROLLER:
                     packet = easyip.Factory.send_flagword(0, muscle_pressures)
                     try:
-                        self._send_packet(packet)
+                        ####self._send_packet(packet)
                         if WAIT_FESTO_RESPONSE:
                             self.actual_pressures = self._get_pressure()
+                            #self.actual_pressures = [1500,1400,1400,1400,1400,1400,1600]
+                            delta = [act - req for req, act in zip(muscle_pressures, self.actual_pressures)]
+                            self.pressure_percent = [int(d * 100 / req) for d, req in zip(delta, muscle_pressures)]
+                            if PRINT_PRESSURE_DELTA:
+                                print muscle_pressures, delta, self.pressure_percent
+
                     except socket.timeout:
                         print "timeout waiting for replay from", self.FST_addr
 
@@ -386,14 +425,18 @@ class OutputInterface(object):
             self.FSTs.sendto(data, self.FST_addr)
             #  print "sending to", self.FST_addr
             if WAIT_FESTO_RESPONSE:
-                print "in sendpacket,waiting for response..."
+                # print "in sendpacket,waiting for response..."
                 data, srvaddr = self.FSTs.recvfrom(bufSize)
                 resp = easyip.Packet(data)
-                print "in senddpacket, response from Festo", resp
+                #  print "in senddpacket, response from Festo", resp
                 if packet.response_errors(resp) is None:
-                    print "No send Errors"
+                    self.netlink_ok = True
+                    #  print "No send Errors"
                 else:
+                    self.netlink_ok = False
                     print "errors=%r" % packet.response_errors(resp)
+            else:
+                resp = None
                 return resp
 
     def _get_pressure(self):
@@ -406,12 +449,13 @@ class OutputInterface(object):
         # packet = easyip.Factory.req_flagword(1, 16, 0)
         if TESTING:
             return self.requested_pressures  # TEMP for testing
-        print "attempting to get pressure"
+        #  print "attempting to get pressure"
         try:
             packet = easyip.Factory.req_flagword(1, 6, 10)
             resp = self._send_packet(packet)
             values = resp.decode_payload(easyip.Packet.DIRECTION_REQ)
+            #  print list(values)
             return list(values)
-        except timeout:
-            print "timeout waiting for Pressures from Festo at", self.addr
-        return None
+        except socket.timeout:
+            print "timeout waiting for Pressures from Festo"
+        return [0,0,0,0,0,0]

@@ -199,7 +199,8 @@ class CoasterInterface():
                 #print "heave", heave
 
                 data = [surge, sway, heave, roll, pitch, yaw_rate]
-                formattedData = ['%.3f' % elem for elem in data]
+                intensity_factor = .5  # larger values are more intense
+                formattedData = ['%.3f' % (elem * intensity_factor)  for elem in data]
                 isRunning = msg.state == 3        # 3 is running, 7 is paused
                 status = [isRunning, msg.speed]
                 #print "formatteddata", formattedData
