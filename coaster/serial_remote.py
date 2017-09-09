@@ -83,7 +83,7 @@ class SerialRemote(object):
 
             while True:
                 result = self.ser.readline()
-                if len(result) > 1:
+                if len(result) > 0:
                     print "serial data:", result
                 if SerialRemote.auto_conn_str in result or "deactivate" in result:
                     self.connected = True
@@ -99,12 +99,16 @@ class SerialRemote(object):
     def _send_serial(self, toSend):
         # private method sends given string to serial port
         if self.ser:
-            if self.ser.writable:
+            if self.ser.isOpen() and self.ser.writable:
                 self.ser.write(toSend)
                 self.ser.flush()
                 return True
         return False
 
+    def send(self, toSend):
+        #  print " ".join(str(ord(char)) for char in toSend)
+        self._send_serial(toSend)
+    
     def service(self):
         """ Poll to service remote control requests."""
 

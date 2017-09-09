@@ -209,11 +209,15 @@ class InputInterface(object):
             self.gui.set_activation_buttons(True)
             self.gui.process_state_change(self.coasterState.state, True)
             self.coaster.set_normal_speed()  # sets speed to 1 if set higher after estop
+            #  print "in activate", str(MoveState.READY_FOR_DISPATCH), MoveState.READY_FOR_DISPATCH
+            self.RemoteControl.send(str(MoveState.READY_FOR_DISPATCH))
         else:
             print "Not activating because not ready for dispatch"
 
     def deactivate(self):
         #  print "in deactivate "
+        if self.coasterState.state == MoveState.READY_FOR_DISPATCH:
+            self.RemoteControl.send(str(MoveState.UNKNOWN))
         self.command("disable")
         self.gui.set_activation_buttons(False)
         self.is_chair_activated = False
@@ -226,7 +230,6 @@ class InputInterface(object):
         else:
             self.coasterState.coaster_event(CoasterEvent.DISABLED)
         self.gui.process_state_change(self.coasterState.state, False)
-
     def quit(self):
         self.command("quit")
 
@@ -248,9 +251,16 @@ class InputInterface(object):
         self.gui.set_remote_status_label(label)
 
     def process_state_change(self, new_state):
-        if new_state == MoveState.READY_FOR_DISPATCH and self.is_chair_activated:
-            #  here at the end of a ride
-            self.command("idle")  # slow drop of platform
+        #  print "in process state change", new_state, self.is_chair_activated
+        if new_state == MoveState.READY_FOR_DISPATCH:
+            if self.is_chair_activated:
+                #  here at the end of a ride
+                self.command("idle")  # slow drop of platform
+                self.RemoteControl.send(str(MoveState.READY_FOR_DISPATCH))
+            else:
+                self.RemoteControl.send(str(MoveState.UNKNOWN)) # at station but deactivated
+        else:
+            self.RemoteControl.send(str(new_state))
 
         self.gui.process_state_change(new_state, self.is_chair_activated)
 
