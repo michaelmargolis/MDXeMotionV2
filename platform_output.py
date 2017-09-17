@@ -354,20 +354,20 @@ class OutputInterface(object):
         self.prev_time = now
         load_per_muscle = self.loaded_weight / 6  # if needed we could calculate individual muscle loads
         pressure = []
-        for idx, distance in enumerate(lengths):
-            pressure.append(int(1000*self._convert_MM_to_pressure(idx, distance, timeDelta, load_per_muscle)))
+        #  print "LENGTHS = ",lengths
+        for idx, len in enumerate(lengths):           
+            pressure.append(int(1000*self._convert_MM_to_pressure(idx, len-FIXED_LEN, timeDelta, load_per_muscle)))
         self._send(pressure)
 
-    def _convert_MM_to_pressure(self, idx, distance, timeDelta, load):
+    def _convert_MM_to_pressure(self, idx, muscle_len, timeDelta, load):
         #  returns pressure in bar
-        #  global MAX_MUSCLE_LEN, MAX_ACTUATOR_LEN
         #  calculate the percent of muscle contraction to give the desired distance
-        percent = 1-(distance + MAX_MUSCLE_LEN - MAX_ACTUATOR_LEN) / MAX_MUSCLE_LEN
+        percent = (MAX_MUSCLE_LEN - muscle_len) / float(MAX_MUSCLE_LEN)
         #  check for range between 0 and .25
-        #  print "distance =", distance, percent
+        #  print "muscle Len =", muscle_len, "percent =", percent
         if percent < 0 or percent > 0.25:
-            print "%.2f percent contraction out of bounds for distance %.1f" % (percent, distance)
-        distDelta = distance-self.prev_pos[idx]  # the change in distance from the previous position
+            print "%.2f percent contraction out of bounds for muscle length %.1f" % (percent, muscle_len)
+        distDelta = muscle_len-self.prev_pos[idx]  # the change in length from the previous position
         accel = (distDelta/1000) / timeDelta  # accleration units are meters per sec
 
         if distDelta < 0:
@@ -377,16 +377,16 @@ class OutputInterface(object):
             pressure = 35 * percent*percent + 15 * percent + .03  # assume 25 Newtons for now
             if PRINT_MUSCLES:
                 print("muscle %d contracting %.1f mm to %.1f, accel is %.2f, force is %.1fN, pressure is %.2f"
-                      % (idx, distDelta, distance, accel, force, pressure))
+                      % (idx, distDelta, muscle_len, accel, force, pressure))
         else:
             force = load * (1+accel)  # force in newtons not yet used
             #  TODO modify formula for expansion
             pressure = 35 * percent*percent + 15 * percent + .03  # assume 25 Newtons for now
             if PRINT_MUSCLES:
                 print("muscle %d expanding %.1f mm to %.1f, accel is %.2f, force is %.1fN, pressure is %.2f"
-                      % (idx, distDelta, distance, accel, force, pressure))
+                      % (idx, distDelta, muscle_len, accel, force, pressure))
 
-        self.prev_pos[idx] = distance  # store the distance
+        self.prev_pos[idx] = muscle_len  # store the muscle len
         MAX_PRESSURE = 6.0 
         MIN_PRESSURE = .05  # 50 millibar is minimin pressure
         pressure = max(min(MAX_PRESSURE, pressure), MIN_PRESSURE)  # limit range 
