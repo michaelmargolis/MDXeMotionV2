@@ -75,7 +75,7 @@ class OutputGui(object):
             #print m,n, _percent, new_y1
             x0, y0, x1, y1 = self.muscle_canvas.coords(self.muscle_rect[idx])           
             self.muscle_canvas.coords(self.muscle_rect[idx], x0, y0, x1, new_y1)
-            info = "length %d is %-3d (%d)%% [P%%=%d]" % (idx, int(m-200), _percent,  pressure_percent[idx])
+            info = "L %d is %-3dmm (%d)%% [P err%%=%d]" % (idx, int(m-200), _percent,  pressure_percent[idx])
             if _percent < -100 or _percent > 100:
                 color = "red"
             else:

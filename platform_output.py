@@ -35,7 +35,7 @@ from ConfigV2 import *
 
 PRINT_MUSCLES = False
 PRINT_PRESSURE_DELTA = True
-WAIT_FESTO_RESPONSE = True
+WAIT_FESTO_RESPONSE = False #True
 OLD_FESTO_CONTROLLER = False
 
 if TESTING:
@@ -81,7 +81,7 @@ class OutputInterface(object):
         self.actual_pressures = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.pressure_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.prev_time = time.clock()
-        self.netlink_ok = False # True if fest responds without error
+        self.netlink_ok = False # True if festo responds without error
         if IS_SERIAL:
             #  configure the serial connection
             try:
@@ -127,6 +127,9 @@ class OutputInterface(object):
         """
         return base_pos, platform_pos, self.platform_mid_height 
 
+    def get_actuator_lengths(self):
+        return MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN
+
     def get_platform_pos(self):
         """
         get coordinates of fixed platform attachment points
@@ -143,6 +146,7 @@ class OutputInterface(object):
             return ("Old Festo Controller", "green3")
         else:
             if WAIT_FESTO_RESPONSE:
+                ###self._get_pressure()
                 if not self.netlink_ok:
                     return ("Festo network error (check ethernet cable and festo power)", "red")
                 else:    
@@ -193,7 +197,8 @@ class OutputInterface(object):
             self.isEnabled = state
             print "Platform enabled state is", state
             if state:
-                self._slow_move(self.platform_disabled_pos, actuator_lengths, 1000)
+                pass
+                #  self._slow_move(self.platform_disabled_pos, actuator_lengths, 1000)
             else:
                 self._slow_move(actuator_lengths, self.platform_disabled_pos, 1000)
             
@@ -207,11 +212,11 @@ class OutputInterface(object):
 
     def move_to_idle(self, client_pos):
        self._slow_move(client_pos, self.platform_disabled_pos, 1000)
-       print "move to idle"
+       #print "move to idle pos"
 
     def move_to_ready(self, client_pos):
         self._slow_move(self.platform_disabled_pos, client_pos, 1000)
-        print "move to ready"
+        #print "move to ready pos"
 
     def swell_for_access(self, interval):
         """
@@ -394,10 +399,9 @@ class OutputInterface(object):
                 if not OLD_FESTO_CONTROLLER:
                     packet = easyip.Factory.send_flagword(0, muscle_pressures)
                     try:
-                        ####self._send_packet(packet)
+                        self._send_packet(packet)
                         if WAIT_FESTO_RESPONSE:
                             self.actual_pressures = self._get_pressure()
-                            #self.actual_pressures = [1500,1400,1400,1400,1400,1400,1600]
                             delta = [act - req for req, act in zip(muscle_pressures, self.actual_pressures)]
                             self.pressure_percent = [int(d * 100 / req) for d, req in zip(delta, muscle_pressures)]
                             if PRINT_PRESSURE_DELTA:
@@ -422,10 +426,10 @@ class OutputInterface(object):
     def _send_packet(self, packet):
         if not TESTING:
             data = packet.pack()
-            self.FSTs.sendto(data, self.FST_addr)
             #  print "sending to", self.FST_addr
+            self.FSTs.sendto(data, self.FST_addr)
             if WAIT_FESTO_RESPONSE:
-                # print "in sendpacket,waiting for response..."
+                #  print "in sendpacket,waiting for response..."
                 data, srvaddr = self.FSTs.recvfrom(bufSize)
                 resp = easyip.Packet(data)
                 #  print "in senddpacket, response from Festo", resp
@@ -437,7 +441,7 @@ class OutputInterface(object):
                     print "errors=%r" % packet.response_errors(resp)
             else:
                 resp = None
-                return resp
+            return resp
 
     def _get_pressure(self):
         # first arg is the number of requests your making. Leave it as 1 always

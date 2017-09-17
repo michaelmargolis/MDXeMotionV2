@@ -32,10 +32,15 @@ PLATFORM_NAME = "Chair v1"
 PLATFORM_UNLOADED_WEIGHT = 20  # weight of moving platform without 'passenger' in killograms
 DEFAULT_PAYLOAD_WEIGHT = 65    # weight of 'passenger'
 MAX_MUSCLE_LEN = 600           # length of muscle at minimum pressure
-MIN_ACTUATOR_LEN = 200+MAX_MUSCLE_LEN * 0.75  # 650: total min actuator distance including fixing hardware
-MAX_ACTUATOR_LEN = 200+MAX_MUSCLE_LEN       # 800: total max actuator distance including fixing hardware
+MIN_MUSCLE_LEN = MAX_MUSCLE_LEN * .75 # length of muscle at maximum pressure
+FIXED_LEN = 200                #  length of fixing hardware
+MIN_ACTUATOR_LEN = MIN_MUSCLE_LEN + FIXED_LEN  # total min actuator distance including fixing hardware
+MAX_ACTUATOR_LEN = MAX_MUSCLE_LEN ++ FIXED_LEN # total max actuator distance including fixing hardware
 MAX_ACTUATOR_RANGE = MAX_ACTUATOR_LEN - MIN_ACTUATOR_LEN
 MID_ACTUATOR_LEN  = MIN_ACTUATOR_LEN + (MAX_ACTUATOR_RANGE/2)
+
+DISABLED_LEN = 200 + MAX_MUSCLE_LEN *.99
+WINDDOWN_LEN = MAX_ACTUATOR_LEN *.92  # not needed for V1 platform
 
 """
 #uncomment this to define attachment locations using angles and distance from origin (vectors)

@@ -25,7 +25,7 @@ class CoasterEvent:
 class State(object):
     def __init__(self, position_requestCB):
         self._state = None
-        self._state = MoveState.UNKNOWN
+        self._state = MoveState.DISABLED
         self.position_requestCB = position_requestCB
         self.is_chair_active = False
         self.prev_event = None  # only used for debug
@@ -47,7 +47,7 @@ class State(object):
 
     @staticmethod
     def string(state):
-        return ("Unknown", "ReadyForDispatch", "Running", "Paused",
+        return ("Disabled", "ReadyForDispatch", "Running", "Paused",
                 "EmergencyStopped", "Resetting")[state]
 
     def coaster_event(self, event):
@@ -76,8 +76,10 @@ class State(object):
         else:
             #  things to do if chair has been disabled:
             if event == CoasterEvent.RESETEVENT and self._state != MoveState.RESETTING:
-                #  print "got reset event"
+                if self._state == MoveState.DISABLED:                    
+                    print "here if coaster moving at startup"    
                 self._state = MoveState.RESETTING
+                #  print "got reset event"
                 self._state_change()
             elif event == CoasterEvent.ESTOPPED and self._state != MoveState.EMERGENCY_STOPPED:
                 self._state = MoveState.EMERGENCY_STOPPED
@@ -138,6 +140,8 @@ class InputInterface(object):
         else:
             self.gui.set_coaster_connection_label(("Coaster Software Not Found"
                                                 "(start NL2 or maximize window if already started)", "red"))
+        print 'Moving train to station at high speed'
+        self.coaster.increase_speed(4)  # 4x is max speed
 
     def _sleep_func(self, duration):
         start = time.time()
@@ -164,6 +168,7 @@ class InputInterface(object):
             print 'dispatch'
             self.coasterState.coaster_event(CoasterEvent.DISPATCHED)
             self.coaster.close_harness()
+            self.coaster.disengageFloor()  # for wilderness park
             self.command("ready")  # slow rise of platform
             #  self._sleep_func(1)
             self.coaster.dispatch()
@@ -217,7 +222,7 @@ class InputInterface(object):
     def deactivate(self):
         #  print "in deactivate "
         if self.coasterState.state == MoveState.READY_FOR_DISPATCH:
-            self.RemoteControl.send(str(MoveState.UNKNOWN))
+            self.RemoteControl.send(str(MoveState.DISABLED))
         self.command("disable")
         self.gui.set_activation_buttons(False)
         self.is_chair_activated = False
@@ -251,15 +256,24 @@ class InputInterface(object):
         self.gui.set_remote_status_label(label)
 
     def process_state_change(self, new_state):
-        #  print "in process state change", new_state, self.is_chair_activated
+        #print "in process state change", new_state, self.is_chair_activated
         if new_state == MoveState.READY_FOR_DISPATCH:
             if self.is_chair_activated:
                 #  here at the end of a ride
                 self.command("idle")  # slow drop of platform
                 self.RemoteControl.send(str(MoveState.READY_FOR_DISPATCH))
             else:
-                self.RemoteControl.send(str(MoveState.UNKNOWN)) # at station but deactivated
+                self.RemoteControl.send(str(MoveState.DISABLED)) # at station but deactivated
         else:
+            """ 
+            if new_state == MoveState.DISABLED:
+                self.coaster.increase_speed(4)  # 4x is max speed
+                self.coasterState.coaster_event(CoasterEvent.RESETEVENT)
+                self.coasterState.state == MoveState.RESETTING 
+                print "in process state, increasing speed"
+            else:
+                print "in process state:", new_state
+            """    
             self.RemoteControl.send(str(new_state))
 
         self.gui.process_state_change(new_state, self.is_chair_activated)
@@ -292,8 +306,8 @@ class InputInterface(object):
                     #  here if coaster not moving and not paused
                     #  print "Auto Reset"
                 else:
-                    if self.coasterState.state == MoveState.UNKNOWN:
-                        # coaster is moving at startuo
+                    if self.coasterState.state == MoveState.DISABLED:
+                        # coaster is moving at startup
                         self.coasterState.coaster_event(CoasterEvent.RESETEVENT)
                     else:
                         self.coasterState.coaster_event(CoasterEvent.UNPAUSED)
@@ -304,10 +318,10 @@ class InputInterface(object):
             #  print isRunning, speed
             
             if len(input_field[2]) == 6:
-                self.current_pos = [float(f) for f in input_field[2]]                
+                self.current_pos = [float(f) for f in input_field[2]]
             if self.is_chair_activated and self.coasterState.state != MoveState.READY_FOR_DISPATCH:
-                # only send if activated and not waiting in station 
-                if self.move_func is not None:                
+                # only send if activated and not waiting in station
+                if self.move_func is not None:
                     self.move_func(self.current_pos)
         else:
             errMsg = format("Telemetry error: %s" % self.coaster.get_telemetry_err_str())

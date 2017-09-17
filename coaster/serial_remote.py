@@ -77,9 +77,10 @@ class SerialRemote(object):
                 self.ser = None
                 return False
             self.ser.flush()
-            print "Looking for Remote control on ", portName
             time.sleep(1)
+            print "Looking for Remote control on ", portName    
             self.ser.write('V')
+            time.sleep(.5)
 
             while True:
                 result = self.ser.readline()

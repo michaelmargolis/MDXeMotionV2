@@ -1,5 +1,6 @@
 """ Platform Controller connects a selected client to chair.
 
+See line 50 for initial window location
 """
 
 import sys
@@ -94,6 +95,7 @@ class Controller:
     def move_to_idle(self):
         actuator_lengths = k.inverse_kinematics(self.process_request(client.get_current_pos()))
         chair.move_to_idle(actuator_lengths)
+        # chair.show_muscles([0,0,0,0,0,0], actuator_lengths)
         
     def move_to_ready(self):
         actuator_lengths = k.inverse_kinematics(self.process_request(client.get_current_pos()))
@@ -169,6 +171,9 @@ def main():
 
     previous = time.time()
     chair_status = None
+    ###client.service()
+    ###controller.disable_platform()
+
     while isActive:
         if client.USE_GUI:
             controller.update_gui()

@@ -12,7 +12,7 @@ from time import time,sleep
 from struct import *
 import collections
 from quaternion import Quaternion
-from math import pi, degrees
+from math import pi, degrees, sqrt
 import sys
 import threading
 #  import  binascii  # only for debug
@@ -92,7 +92,7 @@ class CoasterInterface():
             self.send_windows_key(0x4a, ord(' '))  # num+
             #  self.sleepFunc(.1)
             self.speed_multiplier = self.speed_multiplier - 1
-            print "in set norm speed, speed_multiplier", self.speed_multiplier
+            #print "in set norm speed, speed_multiplier", self.speed_multiplier
 
     def toggle_pause(self):
         print 'pause'
@@ -116,6 +116,10 @@ class CoasterInterface():
     def close_harness(self):
         print 'Closing Harness'
         self.send_windows_key(0x50, ord('2'))
+     
+    def disengageFloor(self):
+        print 'Disengaging floor'
+        self.send_windows_key(0x4F, ord('1'))
 
     def set_manual_mode(self):
         msg = pack('>ii?', 0, 0, True)  # coaster, car, True sets manual mode, false sets auto
@@ -176,15 +180,36 @@ class CoasterInterface():
             else:  # normalize
                 quat = Quaternion(msg.quatX, msg.quatY, msg.quatZ, msg.quatW)
                 roll = quat.toRollFromYUp() / pi
-                pitch = -quat.toPitchFromYUp()  # / pi               
-                yaw = -quat.toYawFromYUp() 
+                pitch = -quat.toPitchFromYUp()  # / pi
+                yaw = -quat.toYawFromYUp()                
                 if self.prev_yaw != None:
-                    delta = time() - self.prev_time
+                    time_delta = time() - self.prev_time
                     self.prev_time = time()
-                    yaw_rate = (self.prev_yaw - yaw) / delta
+                    yaw_rate = self.prev_yaw - yaw
+                    # handle crossings between 0 and 360 degrees
+                    if yaw_rate  > pi:
+                        yaw_rate -= 2*pi
+                    if yaw_rate  < -pi:
+                        yaw_rate += 2*pi
+                    yaw_rate = yaw_rate / time_delta
                 else:
                     yaw_rate = 0
+                #print yaw,",", yaw_rate,",",
                 self.prev_yaw = yaw
+                # the following code limits dynamic range nonlinearly
+                if yaw_rate > pi:
+                   yaw_rate = pi
+                elif yaw_rate < -pi:
+                    yaw_rate = -pi
+                #print yaw_rate,",",
+                yaw_rate = yaw_rate / 2
+                #print yaw_rate,",",
+                if yaw_rate > 0:
+                    yaw_rate = sqrt(yaw_rate)
+                elif yaw_rate < 0:
+                    yaw_rate = -sqrt(-yaw_rate)
+                #print yaw_rate
+                
                 #data = [msg.gForceX, msg.posX, msg.gForceY-1, msg.posY, msg.gForceZ, msg.posZ]
                 data = [msg.gForceX, msg.gForceY-1, msg.gForceZ]
                 
@@ -200,6 +225,8 @@ class CoasterInterface():
 
                 data = [surge, sway, heave, roll, pitch, yaw_rate]
                 intensity_factor = .5  # larger values are more intense
+                yaw_rate = yaw_rate * 2 # increase intensity of yaw
+                
                 formattedData = ['%.3f' % (elem * intensity_factor)  for elem in data]
                 isRunning = msg.state == 3        # 3 is running, 7 is paused
                 status = [isRunning, msg.speed]

@@ -1,7 +1,7 @@
 """
   PlatformInput.py
 
-  keyboard input version that accepts comma seperated values as: x,y,z,r,p,y
+  keyboard input version that accepts comma separated values as: x,y,z,r,p,y
     x is forward/back movement in millimeters (+ is forward)
     y is side to side movement in mm (+ is left)
     z is up/down movement in mm (+ is up)
@@ -83,7 +83,7 @@ class InputInterface(object):
     def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
         self.move_func = move_func
-        self.limits = limits    # note limits are in mm and radians
+        self.limits = limits  # note limits are in mm and radians
 
         print "enter 'enable' to enable platform"
         print "enter 'disable' to disable platform"
