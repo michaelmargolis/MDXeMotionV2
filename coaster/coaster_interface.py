@@ -48,6 +48,7 @@ class CoasterInterface():
         self.id = 1
         self.telemetry_err_str = "Waiting to connect to NoLimits Coaster"
         self.telemetry_status_ok = False
+        self._telemetry_state_flags = 0
         self.prev_yaw = None
         self.prev_time = time()
         self.lift_height = 32  # max height in meters
@@ -156,20 +157,17 @@ class CoasterInterface():
         r = self._create_extended_NL2_message(self.N_MSG_LOAD_PARK, 43981, msg, len(park)+1)
         #  print "load park r", binascii.hexlify(r),"msg=", binascii.hexlify(msg)
         self.send(r)
-        """
-        sleep(3)
+
         while True:
-            input_field = self.get_telemetry()
-            print "data from coaster", input_field
-            if self.get_telemetry_status() and input_field and len(input_field) == 3:
+            self.get_telemetry()
+            print self._telemetry_state_flags & 1
+            if self._telemetry_state_flags & 1: # test if in play mode
                 self.set_manual_mode()
-                self.reset_park(False)
+                self.reset_park(True)
                 print "set manual mode and reset park"
-                break;
-            else:
-               errMsg = format("Telemetry error: %s" % self.get_telemetry_err_str())
-               print errMsg     
-        """
+                break
+   
+
          
     def close_park(self):
         self.send(self._create_simple_message(self.id, self.N_MSG_CLOSE_PARK))
@@ -200,6 +198,7 @@ class CoasterInterface():
 
     def _process_telemetry_msg(self, msg):
         #  this version only creates a normalized message
+        self._telemetry_state_flags = msg.state
         if(msg.state & 1):  # only process if coaster is in play
             if(False):
                 #  code here is non-normalized (real) translation and rotation messages

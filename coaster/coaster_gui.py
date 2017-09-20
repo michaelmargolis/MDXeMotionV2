@@ -50,14 +50,13 @@ class CoasterGui(object):
         label_frame.grid(row=3, column=0, columnspan=4)
 
         if ATTRACTION_LICENCE:
-            park_listbox = ttk.Combobox(label_frame)
-            park_listbox.grid(row=0, column=0, columnspan=2, ipadx=16, sticky=tk.W)
+            self.park_listbox = ttk.Combobox(label_frame)
+            self.park_listbox.grid(row=0, column=0, columnspan=2, ipadx=16, sticky=tk.W)
             self.read_parks()
 
-            park_listbox["values"] = self.park_name
-            park_listbox.bind("<<ComboboxSelected>>", lambda _ : self._park_by_index(park_listbox.current()))
-            park_listbox.current(0)
-
+            self.park_listbox["values"] = self.park_name
+            self.park_listbox.bind("<<ComboboxSelected>>", lambda _ : self._park_by_index(self.park_listbox.current()))
+            self.park_listbox.current(0)
 
         self.coaster_status_label = tk.Label(label_frame, text="Waiting for Coaster Status", font=(None, 24),)
         self.coaster_status_label.grid(row=1, columnspan=2, ipadx=16, sticky=tk.W)
@@ -111,6 +110,7 @@ class CoasterGui(object):
                     p = p[len(p)-1]
                     #print p,
                     self.park_name.append(p.split('.')[0])
+            self.park_listbox.configure(state="disabled")
             print "available parks are:", self.park_name
         except:
             e = sys.exc_info()[0]
@@ -122,8 +122,9 @@ class CoasterGui(object):
     def _park_by_index(self, idx):
         print idx, self.park_path[idx]
         if self._park_callback != None:
-            print "loading park", self.park_name[idx]    
-            self._park_callback(False, self.park_path[idx])
+            print "loading park", self.park_name[idx]
+            # load park in pause mode, this will unpuase when park is loaded
+            self._park_callback(True, self.park_path[idx])
 
     def get_selected_park(self): 
         return None
@@ -140,9 +141,11 @@ class CoasterGui(object):
         if isEnabled:
             self.activation_button.config(text="Activated ", relief=tk.SUNKEN)
             self.deactivation_button.config(text="Deactivate", relief=tk.RAISED)
+            self.park_listbox.configure(state="disabled")
         else:
             self.activation_button.config(text="Activate ", relief=tk.RAISED)
             self.deactivation_button.config(text="Deactivated", relief=tk.SUNKEN)
+            self.park_listbox.configure(state="readonly")
 
     def set_coaster_connection_label(self, label):
         self.coaster_connection_label.config(text=label[0], fg=label[1])
