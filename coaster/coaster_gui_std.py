@@ -1,18 +1,10 @@
-"""
-Python Coaster client GUI
+# Python Coaster client GUI
 
-This version requires NoLimits attraction license and NL ver 2.5.3.4 or later
-"""
-
-import os
-import sys
 import Tkinter as tk
 import tkMessageBox
 import ttk
 from MoveState import MoveState
-import win32gui # for set_focus
 
-ATTRACTION_LICENCE = True
 
 class CoasterGui(object):
 
@@ -22,9 +14,6 @@ class CoasterGui(object):
         self.reset = reset
         self.activate_callback_request = activate_callback_request
         self.quit = quit_callback
-        self.park_path = []
-        self.park_name = []
-        self._park_callback = None
 
     def init_gui(self, master, limits):
         self.master = master
@@ -49,33 +38,23 @@ class CoasterGui(object):
         label_frame = tk.Frame(master, pady=20)
         label_frame.grid(row=3, column=0, columnspan=4)
 
-        if ATTRACTION_LICENCE:
-            park_listbox = ttk.Combobox(label_frame)
-            park_listbox.grid(row=0, column=0, columnspan=2, ipadx=16, sticky=tk.W)
-            self.read_parks()
-
-            park_listbox["values"] = self.park_name
-            park_listbox.bind("<<ComboboxSelected>>", lambda _ : self._park_by_index(park_listbox.current()))
-            park_listbox.current(0)
-
-
         self.coaster_status_label = tk.Label(label_frame, text="Waiting for Coaster Status", font=(None, 24),)
-        self.coaster_status_label.grid(row=1, columnspan=2, ipadx=16, sticky=tk.W)
+        self.coaster_status_label.grid(row=0, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.coaster_connection_label = tk.Label(label_frame, fg="red", font=(None, 12),
                text="Coaster Software Not Found (start NL2 or maximize window if already started)")
-        self.coaster_connection_label.grid(row=2, columnspan=2, ipadx=16, sticky=tk.W)
+        self.coaster_connection_label.grid(row=1, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.remote_status_label = tk.Label(label_frame, font=(None, 12),
                  text="Looking for Remote Control", fg="orange")
-        self.remote_status_label.grid(row=3, columnspan=2, ipadx=16, sticky=tk.W)
+        self.remote_status_label.grid(row=2, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.chair_status_Label = tk.Label(label_frame, font=(None, 12),
                  text="Using Festo Controllers", fg="orange")
-        self.chair_status_Label.grid(row=4, column=0, columnspan=2, ipadx=16, sticky=tk.W)
+        self.chair_status_Label.grid(row=3, column=0, columnspan=2, ipadx=16, sticky=tk.W)
 
         bottom_frame = tk.Frame(master, pady=16)
-        bottom_frame.grid(row=5, columnspan=3)
+        bottom_frame.grid(row=4, columnspan=3)
 
         self.is_chair_activated = tk.IntVar()
         self.is_chair_activated.set(0)  # disable by default
@@ -94,39 +73,6 @@ class CoasterGui(object):
         self.org_button_color = self.dispatch_button.cget("background")
 
         master.bind("<Key>", self.hotkeys)
-
-    def set_focus(self):
-        guiHwnd = win32gui.FindWindow("TkTopLevel",None)
-        print guiHwnd
-        win32gui.SetForegroundWindow(guiHwnd)
-   
-    def read_parks(self):
-        try:
-            path = os.path.abspath('coaster/parks.cfg')
-            with open(path) as f:
-                self.park_path = f.read().splitlines()
-                for park in self.park_path:
-                    #print self.park_path
-                    p = park.split('/')
-                    p = p[len(p)-1]
-                    #print p,
-                    self.park_name.append(p.split('.')[0])
-            print "available parks are:", self.park_name
-        except:
-            e = sys.exc_info()[0]
-            print "Unable to open parks.cfg file, select park in NoLimits", e
-
-    def set_park_callback(self, cb):
-        self._park_callback = cb
-        
-    def _park_by_index(self, idx):
-        print idx, self.park_path[idx]
-        if self._park_callback != None:
-            print "loading park", self.park_name[idx]    
-            self._park_callback(False, self.park_path[idx])
-
-    def get_selected_park(self): 
-        return None
 
     def _enable_pressed(self):
         #  self.set_activation_buttons(True)
@@ -173,7 +119,7 @@ class CoasterGui(object):
                 self.activate()
         """
     def process_state_change(self, new_state, isActivated):
-        #  print "in coaster gui process state change, new state is", new_state
+        #  print "in process state change, new state is", new_state
         if new_state == MoveState.READY_FOR_DISPATCH:
             if isActivated:
                 print "Coaster is Ready for Dispatch"

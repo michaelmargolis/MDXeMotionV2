@@ -1,7 +1,9 @@
 """
-coaster_interface module
+coaster_interface module provides control to and telemetry from coaster.
 
-This version requires NoLimits attraction license and NL ver 2.5.3.4 or later
+config nl2:
+in setup enable ShowCursor (use M key and right mouse)
+Day night cycle to 99999 minutes
 """
 
 import socket
@@ -12,27 +14,21 @@ from quaternion import Quaternion
 from math import pi, degrees, sqrt
 import sys
 import threading
+#  import  binascii  # only for debug
 
-import  binascii  # only for debug
+import win32gui, win32api, win32con, ctypes
 
 
 class CoasterInterface():
 
     N_MSG_OK = 1
     N_MSG_ERROR = 2
-    N_MSG_GET_VERSION = 3 # datasize 0
+    N_MSG_GET_VERSION = 3
     N_MSG_VERSION = 4
-    N_MSG_GET_TELEMETRY = 5  # datasize 0
+    N_MSG_GET_TELEMETRY = 5
     N_MSG_TELEMETRY = 6
-    N_MSG_SET_MANUAL_MODE = 16 # datasize 9
-    N_MSG_DISPATCH = 17  # datasize 8
-    N_MSG_SET_PLATFORM = 20  # datasize 9
-    N_MSG_LOAD_PARK = 24   # datasize 1 + string 
-    N_MSG_CLOSE_PARK = 25  # datasize 0
-    N_MSG_SET_PAUSE = 27   # datasize 1
-    N_MSG_RESET_PARK = 28  # datasize 1
-    N_MSG_SET_ATTRACTION_MODE = 30   # datasize 1
-    
+    N_MSG_SET_MANUAL_MODE = 16
+    N_MSG__DISPATCH = 17
     c_nExtraSizeOffset = 9  # Start of extra size data within message
 
     telemetryMsg = collections.namedtuple('telemetryMsg', 'state, frame, viewMode, coasterIndex,\
@@ -46,77 +42,93 @@ class CoasterInterface():
         self.interval = .05  # time in seconds between telemetry requests
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.id = 1
+        #  self.client.send(self._create_simple_message(self.id, self.N_MSG_GET_VERSION))
+        #  following is for windows interface
+        self.nl2Hwnd = None
+        self.speed_multiplier = 0  # 0 is normal speed, changed to 4 when running to station at high speed
         self.telemetry_err_str = "Waiting to connect to NoLimits Coaster"
         self.telemetry_status_ok = False
         self.prev_yaw = None
         self.prev_time = time()
         self.lift_height = 32  # max height in meters
-        self.pause_mode = False  # for toggle todo replace with explicit pause state
 
     def begin(self):
-        self.connect_to_coaster()
+        windowClass = "NL3D_MAIN_{7F825CE1-21E4-4C1B-B657-DE6FCD9AEB12}"
+        self.nl2Hwnd = win32gui.FindWindow(windowClass, None)  # store the window handle
+        #  print "nl2 handle = ", self.nl2Hwnd
+        self.guiHwnd = win32gui.FindWindow(None, "NL2 Coaster Ride Controller")
+        #  print "gui window is ", self.guiHwnd
 
     def is_NL2_accessable(self):
-       self.get_telemetry()
-       #  print "is accessable", self.telemetry_status_ok == True
-       return self.telemetry_status_ok == True
-       
-    def connect_to_coaster(self):
-       try:          
-          self.client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-          self.client.connect((self.coaster_ip_addr, self.coaster_port))
-          return self.is_NL2_accessable()
-       except Exception, e:
-          print "error connecting to NoLimits", e
-          return False    
+        windowClass = "NL3D_MAIN_{7F825CE1-21E4-4C1B-B657-DE6FCD9AEB12}"
+        self.nl2Hwnd = win32gui.FindWindow(windowClass, None)  # store the window handle
+        #print "NL2 window is ", self.nl2Hwnd, self.nl2Hwnd != 0
+        return self.nl2Hwnd != 0
 
+    def send_windows_key(self, scancode, key):
+        #  print scancode, key
+        lparam = 1 + (scancode << 16)
+        win32api.SendMessage(self.nl2Hwnd, win32con.WM_KEYDOWN, key, lparam)
+        win32api.SendMessage(self.nl2Hwnd, win32con.WM_CHAR, key, lparam)
+        win32api.SendMessage(self.nl2Hwnd, win32con.WM_KEYUP, key, lparam)
 
-    def send(self, r):
-        self.client.sendall(r)
+    def increase_speed(self, steps):
+        for _ in range(steps):
+            self.send_windows_key(0x4e, ord(' '))   # num+
+            #  self.sleepFunc(.1)
+        self.speed_multiplier = steps
+        #  print  "in inc, speed_multiplier",self.speed_multiplier
+
+    def decrease_speed(self, steps):
+        for _ in range(steps):
+            self.send_windows_key(0x4a, ord(' '))   # num+
+            #  self.sleepFunc(.1)
+        self.speed_multiplier = self.speed_multiplier - steps
+        #  print  "in dec speed_multiplier",self.speed_multiplier
+
+    def set_normal_speed(self):
+        while self.speed_multiplier:
+            self.send_windows_key(0x4a, ord(' '))  # num+
+            #  self.sleepFunc(.1)
+            self.speed_multiplier = self.speed_multiplier - 1
+            #print "in set norm speed, speed_multiplier", self.speed_multiplier
 
     def toggle_pause(self):
-        #  print "toggle Pause"
-        if self.pause_mode:
-            self.pause_mode = False
-            self.set_pause(False)
-        else:
-          self.pause_mode = True
-          self.set_pause(True)
+        print 'pause'
+        self.send_windows_key(0x19, ord('P'))
 
     def dispatch(self):
+        if self.speed_multiplier > 0:
+            print "speed_multiplier", self.speed_multiplier
+            self.decrease_speed(self.speed_multiplier)
         msg = pack('>ii', 0, 0)  # coaster, station
-        r = self._create_NL2_message(self.N_MSG_DISPATCH, 9, msg)
+        r = self._create_NL2_message(self.N_MSG__DISPATCH, 9, msg)
         #  print "dispatch msg",  binascii.hexlify(msg),len(msg), "full", binascii.hexlify(r)
-        self.send(r)
+        self.client.send(r)
 
         #  self.send_windows_key(0x17, ord('I'))
 
     def open_harness(self):
         print 'Opening Harness'
-        pass
+        self.send_windows_key(0x48, ord('8'))
 
     def close_harness(self):
         print 'Closing Harness'
-        pass
+        self.send_windows_key(0x50, ord('2'))
      
     def disengageFloor(self):
         print 'Disengaging floor'
-        #self.send_windows_key(0x4F, ord('1'))
-        msg = pack('>ii?', 0, 0, True)  # coaster, car, True lowers, False raises
-        r = self._create_NL2_message(self.N_MSG_SET_PLATFORM, 0, msg)
-        #  print "set platform msg", binascii.hexlify(r)
-        self.send(r)
+        self.send_windows_key(0x4F, ord('1'))
 
     def set_manual_mode(self):
         msg = pack('>ii?', 0, 0, True)  # coaster, car, True sets manual mode, false sets auto
         r = self._create_NL2_message(self.N_MSG_SET_MANUAL_MODE, 0, msg)
         #  print "set mode msg", binascii.hexlify(r)
-        self.send(r)
+        self.client.send(r)
 
     def get_telemetry(self):
-            #  returns err 
-            #print "get telemetry"
-            self.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
+            #  returns err
+            self.client.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
             data = self.client.recv(self.coaster_buffer_size)
             if data and len(data) >= 10:
                 #  print "data len",len(data)
@@ -125,7 +137,7 @@ class CoasterInterface():
                 if msg == self.N_MSG_VERSION:
                     v0, v1, v2, v3 = unpack('cccc', data[self.c_nExtraSizeOffset:self.c_nExtraSizeOffset+4])
                     print 'NL2 version', chr(ord(v0)+48), chr(ord(v1)+48), chr(ord(v2)+48), chr(ord(v3)+48)
-                    self.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
+                    self.client.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
                 elif msg == self.N_MSG_TELEMETRY:
                     if size == 76:
                         t = (unpack('>IIIIIIIIfffffffffff', data[self.c_nExtraSizeOffset:self.c_nExtraSizeOffset+76]))
@@ -133,12 +145,11 @@ class CoasterInterface():
                         #print "tm", tm
                         formattedData = self._process_telemetry_msg(tm)
                         self.telemetry_status_ok = True
-                        #  print "telemetry ", self.telemetry_status_ok
                         return formattedData
                     else:
                         print 'invalid msg len expected 76, got ', size
                     sleep(self.interval)
-                    self.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
+                    self.client.send(self._create_simple_message(self.id, self.N_MSG_GET_TELEMETRY))
                 elif msg == self.N_MSG_OK:
                     self.telemetry_status_ok = True
                     pass
@@ -148,49 +159,6 @@ class CoasterInterface():
                     #  print "err:", self.telemetry_err_str
                 else:
                     print 'unhandled message', msg
-
-    def load_park(self, isPaused, park):
-        print "loading park", park
-        start = time()
-        msg = pack('>?', isPaused) + park # start in pause, park string
-        r = self._create_extended_NL2_message(self.N_MSG_LOAD_PARK, 43981, msg, len(park)+1)
-        #  print "load park r", binascii.hexlify(r),"msg=", binascii.hexlify(msg)
-        self.send(r)
-        """
-        sleep(3)
-        while True:
-            input_field = self.get_telemetry()
-            print "data from coaster", input_field
-            if self.get_telemetry_status() and input_field and len(input_field) == 3:
-                self.set_manual_mode()
-                self.reset_park(False)
-                print "set manual mode and reset park"
-                break;
-            else:
-               errMsg = format("Telemetry error: %s" % self.get_telemetry_err_str())
-               print errMsg     
-        """
-         
-    def close_park(self):
-        self.send(self._create_simple_message(self.id, self.N_MSG_CLOSE_PARK))
-
-    def set_pause(self, isPaused):
-        msg = pack('>?', isPaused) # pause if arg is True
-        r = self._create_NL2_message(self.N_MSG_SET_PAUSE, 43981, msg)
-        #  print "set pause msg", binascii.hexlify(r)
-        self.send(r)
-
-    def reset_park(self, start_paused):
-        msg = pack('>?', start_paused) # start paused if arg is True
-        r = self._create_NL2_message(self.N_MSG_RESET_PARK, 0, msg)
-        #  print "reset park msg", binascii.hexlify(r)
-        self.send(r)
-
-    def set_attraction_mode(self, state):
-        msg = pack('>?', state)   # enable mode if state True
-        r = self._create_NL2_message(self.N_MSG_SET_ATTRACTION_MODE, 0, msg)
-        print "set attraction mode msg", binascii.hexlify(r)
-        self.send(r)
 
     def get_telemetry_err_str(self):
         return self.telemetry_err_str
@@ -281,13 +249,13 @@ class CoasterInterface():
         result = start + msg + end
         return result
 
-    def _create_extended_NL2_message(self, msgId, requestId, msg, len):  # message is packed
-        #  fields are: N Message Id, reqest Id, data size, L
+    def connect_to_coaster(self):
+        try:
+            self.client.connect((self.coaster_ip_addr, self.coaster_port))
+            return True
+        except socket.error, e:
+            return False
 
-        start = pack('>cHIH', 'N', msgId, requestId, len)
-        end = pack('>c', 'L')
-        result = start + msg + end
-        return result
 
 if __name__ == "__main__":
     #  identifyConsoleApp()

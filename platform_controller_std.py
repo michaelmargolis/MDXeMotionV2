@@ -1,6 +1,6 @@
 """ Platform Controller connects a selected client to chair.
 
-This version requires NoLimits attraction license and NL ver 2.5.3.4 or later
+This version does NOT require attraction licence
 """
 
 import sys
@@ -20,7 +20,7 @@ sys.path.insert(0, './coaster')  # the relative dir containing coaster files
 #  from platform_input import InputInterface    #  keyboard
 #  from platform_input_UDP import InputInterface #  UDP
 #  from platform_input_threadedUDP import InputInterface #  threaded UDP
-from coaster_client import InputInterface
+from coaster_client_std import InputInterface
 from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface

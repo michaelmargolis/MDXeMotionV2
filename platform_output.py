@@ -20,7 +20,7 @@ import numpy as np
 from output_gui import OutputGui
 #  import matplotlib.pyplot as plt    #  only for testing
 
-TESTING = False
+TESTING = True
 if not TESTING:
     sys.path.insert(0, './fstlib')
     from fstlib import easyip

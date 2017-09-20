@@ -54,9 +54,12 @@ class SerialRemote(object):
                         break
     def _search(self):
         for p in sorted(list(serial.tools.list_ports.comports())):
-            self.RxQ.put("Looking for Remote on %s" % p[0])
-            if self._connect(p[0]):
-                return p[0]
+            port = p[0] 
+            #print port, len(port)
+            if len(port) < 6:  # ignore ports > 99
+                self.RxQ.put("Looking for Remote on %s" % port)
+                if self._connect(port):
+                    return port
         return None
 
     def _connect(self, portName):
@@ -80,12 +83,12 @@ class SerialRemote(object):
             time.sleep(1)
             print "Looking for Remote control on ", portName    
             self.ser.write('V')
-            time.sleep(.5)
+            time.sleep(0.5)
 
             while True:
                 result = self.ser.readline()
-                if len(result) > 0:
-                    print "serial data:", result
+                #  if len(result) > 0:
+                #      print "serial data:", result
                 if SerialRemote.auto_conn_str in result or "deactivate" in result:
                     self.connected = True
                     return True
