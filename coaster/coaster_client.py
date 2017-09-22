@@ -203,7 +203,17 @@ class InputInterface(object):
         elif self.coasterState.state == MoveState.RESETTING or self.coasterState.state == MoveState.READY_FOR_DISPATCH:
             #  here if reset pressed after estop and before dispatching
             print "command in PlatformOutput to move from current to wind down, wait, then back to current pos"
+            if self.coasterState.state == MoveState.READY_FOR_DISPATCH:
+                self.gui.process_state_change(MoveState.RESETTING, self.is_chair_activated)
+                self.RemoteControl.send(str(MoveState.RESETTING))
             self.command("swellForStairs")
+            if self.coasterState.state == MoveState.READY_FOR_DISPATCH:
+                self.gui.process_state_change(MoveState.READY_FOR_DISPATCH, self.is_chair_activated)
+                if self.is_chair_activated:
+                    self.RemoteControl.send(str(MoveState.READY_FOR_DISPATCH))
+                else:
+                    self.RemoteControl.send(str(MoveState.DISABLED))
+
 
     def emergency_stop(self):
         print "legacy emergency stop callback"

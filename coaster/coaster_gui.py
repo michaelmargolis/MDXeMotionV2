@@ -42,7 +42,7 @@ class CoasterGui(object):
         self.pause_button = tk.Button(master, height=2, width=16, text="Pause", command=self.pause, underline=0)
         self.pause_button.grid(row=1, column=2, padx=(30))
 
-        self.reset_button = tk.Button(master, height=2, width=16, text="Return to Start",
+        self.reset_button = tk.Button(master, height=2, width=16, text="Reset",
                                       command=self.reset, underline=0)
         self.reset_button.grid(row=1, column=3, padx=(24))
 
@@ -188,7 +188,8 @@ class CoasterGui(object):
                 self.coaster_status_label.config(text="Coaster at Station but deactivated", fg="orange")
 
             self.pause_button.config(relief=tk.RAISED, state=tk.DISABLED)
-            self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
+            #self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
+            self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
 
         elif new_state == MoveState.RUNNING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
@@ -209,4 +210,4 @@ class CoasterGui(object):
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.reset_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
-            self.coaster_status_label.config(text="Coaster is returning to station", fg="blue")
+            self.coaster_status_label.config(text="Coaster is resetting", fg="blue")
