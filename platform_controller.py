@@ -15,6 +15,7 @@ from math import degrees
 
 sys.path.insert(0, './client')  # the relative dir containing client files
 sys.path.insert(0, './coaster')  # the relative dir containing coaster files
+sys.path.insert(0, './temperature') #relative path to cpu and gpu monitor
 
 #  from platform_input_tk import InputInterface   #  tkinter gui
 #  from platform_input import InputInterface    #  keyboard
@@ -25,6 +26,8 @@ from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface
 
+from temperature import system_temperature
+
 isActive = True  # set False to terminate
 frameRate = 0.05
 
@@ -33,6 +36,7 @@ chair = OutputInterface()
 shape = Shape(frameRate)
 k = Kinematics()
 
+temperature = system_temperature((40,60),(75,90))
 
 class Controller:
 
@@ -173,17 +177,27 @@ def main():
     chair_status = None
     ###client.service()
     ###controller.disable_platform()
-
+    frame = 0 
     while isActive:
         if client.USE_GUI:
             controller.update_gui()
         if(time.time() - previous >= frameRate *.99):
             #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))
             previous = time.time()
+            """
             if chair_status != chair.get_output_status():
                 chair_status = chair.get_output_status()
                 client.chair_status_changed(chair_status)
+            """
             client.service()
+            if frame % int(1/frameRate) == 0:
+                 # hack to display temperature on Festo status line"
+                status = temperature.read()
+                colors = ["green3","orange","red"]
+                client.chair_status_changed((status[0], colors[status[1]]))
+                #print temperature.read()[0]
+                
+            frame += 1
             #  print format("in controller, service took %.1f ms" % ((time.time() - previous) * 1000))
 
 
