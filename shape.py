@@ -31,6 +31,7 @@ class Shape(object):
         self.ma_samples  = [1, 1, 1, 1, 1, 1]
         self.prev_washed = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # previous washout values
         self.prev_value = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # previous request
+        self.intensity = 1.0 #  factor to adjust final gain from remote control
 
     #  method to init gui is called after begin method
     def init_gui(self, master):
@@ -42,7 +43,7 @@ class Shape(object):
         GUI code below for shape control of ride intensity and washout
         """
 
-        self.label0 = tk.Label(frame, text="Ride Intensity").pack(fill=tk.X, pady=5)
+        self.intensity_label = tk.Label(frame, text="Ride Intensity").pack(fill=tk.X, pady=5)
 
         sLabels = ("X", "Y", "Z", "R", "P", "Y")
         for i in range(6):
@@ -136,6 +137,16 @@ class Shape(object):
     def get_master_gain(self):
         return self.master_gain
 
+    def set_intensity(self, value):
+        #  expects float between 0 and 1.0
+        self.intensity = value
+
+    def get_intensity(self):
+        return self.master_gain * self.intensity
+
+    def get_overall_intensity(self):
+        return self.master_gain * self.intensity
+
     def set_washout(self, idx, value):
         #  expects washout duration (time to decay below 2%)
         #  zero disables washout
@@ -154,7 +165,7 @@ class Shape(object):
         #  use gain setting to increase or decrease values
         #  print request
         # print "in shape", request, self.gains, self.master_gain
-        r = np.multiply(request, self.gains) * self.master_gain
+        r = np.multiply(request, self.gains) * self.master_gain * self.intensity
 
         np.clip(r, -1, 1, r)  # clip normalized values
         #  print "clipped", r       

@@ -96,10 +96,12 @@ class Controller:
         chair.set_enable(False, self.actuator_lengths)
         self.is_output_enabled = False
 
-    def chair_status_changed(self, chair_status):
-        self.chair_status_Label.config(text=chair_status[0], fg=chair_status[1])
+    def chair_status_changed(self, status):
+        self.chair_status_Label.config(text=status[0], fg=status[1])
 
-
+    def temperature_status_changed(self, status):
+        self.temperature_status_Label.config(text=status[0], fg=status[1])
+        
 controller = Controller()
 
 

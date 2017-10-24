@@ -53,7 +53,7 @@ class State(object):
     def coaster_event(self, event):
         if event != self.prev_event:
             self.prev_event = event
-            #print event
+            #  print "coaster event is",event, "active state is", self.is_chair_active
 
         if self.is_chair_active:
             if event == CoasterEvent.STOPPED and self._state != MoveState.READY_FOR_DISPATCH:

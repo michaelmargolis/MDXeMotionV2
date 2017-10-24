@@ -5,6 +5,7 @@ import serial
 import time
 import serial.tools.list_ports
 import threading
+import os
 from Queue import Queue
 
 
@@ -21,7 +22,7 @@ class SerialRemote(object):
         self.ser = None
         self.ser_buffer = ""
         self.baud_rate = 57600
-        self.timeout_period = 1
+        self.timeout_period = 2
         self.is_connected = False
         self.actions = actions
         self.RxQ = Queue()
@@ -56,9 +57,10 @@ class SerialRemote(object):
         for p in sorted(list(serial.tools.list_ports.comports())):
             port = p[0] 
             #print port, len(port)
-            if len(port) < 6:  # ignore ports > 99
+            if os.name == 'posix' or len(port) < 6:  # ignore ports > 99 on windows
                 self.RxQ.put("Looking for Remote on %s" % port)
                 if self._connect(port):
+                    print "found remote on ", port
                     return port
         return None
 
@@ -69,27 +71,25 @@ class SerialRemote(object):
         self.ser = None
         result = ""
         try:
-            self.ser = serial.Serial()
-            self.ser.port = portName
-            self.ser.baudrate = self.baud_rate
+            self.ser = serial.Serial(portName, self.baud_rate)
             self.ser.timeout = self.timeout_period
-            self.ser.setDTR(False)
-            self.ser.open()
+            #self.ser.setDTR(False)  
             if not self.ser.isOpen():
                 print "Connection failed:", portName, "has already been opened by another process"
                 self.ser = None
                 return False
             self.ser.flush()
-            time.sleep(1)
+            time.sleep(.1)
             print "Looking for Remote control on ", portName    
-            self.ser.write('V')
-            time.sleep(0.5)
+            self.ser.write('V\n')
+            #  print self.ser.readline()
+            time.sleep(1.1)
 
-            while True:
+            for x in range (0,3):
                 result = self.ser.readline()
-                #  if len(result) > 0:
-                #      print "serial data:", result
-                if SerialRemote.auto_conn_str in result or "deactivate" in result:
+                if len(result) > 0:
+                    print "serial data:", result
+                if SerialRemote.auto_conn_str in result or  "intensity" in result:
                     self.connected = True
                     return True
                 if len(result) < 1:
@@ -102,7 +102,7 @@ class SerialRemote(object):
 
     def _send_serial(self, toSend):
         # private method sends given string to serial port
-        if self.ser:
+        if self.ser and self.connected :
             if self.ser.isOpen() and self.ser.writable:
                 self.ser.write(toSend)
                 self.ser.flush()
@@ -115,10 +115,44 @@ class SerialRemote(object):
     
     def service(self):
         """ Poll to service remote control requests."""
-
         while not self.RxQ.empty():
             msg = self.RxQ.get().rstrip()
             if "Detected Remote" in msg or "Reconnect Remote" in msg or "Looking for Remote" in msg:
                 self.actions['detected remote'](msg)
             elif SerialRemote.auto_conn_str not in msg:  # ignore remote ident
-                self.actions[msg]()
+                if "intensity" in msg:
+                    # TODO add error checking below
+                    m,intensity = msg.split('=',2)
+                    # print m, "=", intensity
+                    self.actions[m](msg)
+                else:
+                    self.actions[msg]()
+
+if __name__ == "__main__":
+    def detected_remote(info):
+        print info
+    def activate():
+        print "activate"
+    def deactivate():
+        print "deactivate" 
+    def pause():
+        print "pause"
+    def dispatch():
+        print "dispatch"
+    def reset():
+        print "reset"
+    def deactivate():
+        print "deactivate"
+    def emergency_stop():
+        print "estop"
+    def set_intensity(intensity):
+        print "intensity ", intensity
+            
+    actions = {'detected remote': detected_remote, 'activate': activate,
+               'deactivate': deactivate, 'pause': pause, 'dispatch': dispatch,
+               'reset': reset, 'emergency_stop': emergency_stop, 'intensity' : set_intensity}
+ 
+    RemoteControl = SerialRemote(actions)
+    while True:
+         RemoteControl.service()
+         time.sleep(.1)

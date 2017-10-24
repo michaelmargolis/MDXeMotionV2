@@ -12,6 +12,8 @@ import tkMessageBox
 import traceback
 import numpy as np
 from math import degrees
+import time
+import os
 
 sys.path.insert(0, './client')  # the relative dir containing client files
 sys.path.insert(0, './coaster')  # the relative dir containing coaster files
@@ -25,6 +27,7 @@ from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface
 
+
 isActive = True  # set False to terminate
 frameRate = 0.05
 
@@ -32,7 +35,6 @@ client = InputInterface()
 chair = OutputInterface()
 shape = Shape(frameRate)
 k = Kinematics()
-
 
 class Controller:
 
@@ -43,12 +45,12 @@ class Controller:
         k.set_geometry( geometry[0],geometry[1],geometry[2])
         limits = chair.get_limits()
         shape.begin(limits, "shape.cfg")
-        client.begin(self.cmd_func, self.move_func, limits)
 
     def init_gui(self, root):
         self.root = root
-        self.root.geometry("580x320")
-        self.root.iconbitmap('images\ChairIcon3.ico')
+        self.root.geometry("620x360")
+        if os.name == 'nt':
+            self.root.iconbitmap('images\ChairIcon3.ico')
         title = client.rootTitle + " for " + chair.get_platform_name()
         self.root.title(title)
         print title
@@ -64,6 +66,8 @@ class Controller:
         client.init_gui(page1)
         shape.init_gui(page2)
         chair.init_gui(page3)
+        self.set_intensity(10)  # default intensity at max
+        return True
 
     def update_gui(self):
         self.root.update_idletasks()
@@ -104,6 +108,21 @@ class Controller:
     def swell_for_access(self):
         chair.swell_for_access(4)  # four seconds in up pos
 
+    def set_intensity(self, intensity):
+        lower_payload_weight = 20  # todo - move these or replace with real time load cell readings 
+        upper_payload_weight = 90
+        payload = self.scale((intensity), (0,10), (lower_payload_weight,  upper_payload_weight))
+        #  print "payload = ", payload
+        chair.set_payload(payload)
+
+        intensity = intensity * 0.1
+        shape.set_intensity(intensity)
+        status = format("%d percent Intensity, (Weight %d kg)" % (shape.get_overall_intensity() * 100, payload)) 
+        client.intensity_status_changed( (status, "green3"))
+       
+    def scale(self, val, src, dst) :  # the Arduino 'map' function written in python
+           return (val - src[0]) * (dst[1] - dst[0]) / (src[1] - src[0])  + dst[0]
+
     def process_request(self, request):
         #  print "in process"
         if client.is_normalized:
@@ -141,6 +160,9 @@ class Controller:
             controller.move_to_ready()
         elif cmd == "swellForStairs":
             controller.swell_for_access()
+        elif 'intensity' in cmd:
+             m,intensity = cmd.split('=',2)
+             controller.set_intensity(int(intensity)) 
         elif cmd == "quit":
             # prompts with tk msg box to confirm 
             controller.quit() 
@@ -160,34 +182,45 @@ controller = Controller()
 
 
 def main():
-
-    try:      
+    try:
         if client.USE_GUI:
             root = tk.Tk()
-            controller.init_gui(root)
+            if controller.init_gui(root) == False:
+                return  # exit if unable to establish contact with client
     except NameError:
         client.USE_GUI = False
         print "GUI Disabled"
 
+    except:
+        e = sys.exc_info()[0]  # report error
+        s = traceback.format_exc()
+        print e, s        
+
     previous = time.time()
     chair_status = None
+    if client.begin(controller.cmd_func, controller.move_func, chair.get_limits()) == False: 
+        return  # exit if can't connect to client
+
     ###client.service()
     ###controller.disable_platform()
-
+    print "starting main service loop"
     while isActive:
         if client.USE_GUI:
             controller.update_gui()
         if(time.time() - previous >= frameRate *.99):
             #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))
             previous = time.time()
+            """
             if chair_status != chair.get_output_status():
                 chair_status = chair.get_output_status()
                 client.chair_status_changed(chair_status)
+            """
             client.service()
+                
             #  print format("in controller, service took %.1f ms" % ((time.time() - previous) * 1000))
-
 
 if __name__ == "__main__":
     main()
     client.fin()
     chair.fin()
+

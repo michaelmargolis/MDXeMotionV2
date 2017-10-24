@@ -7,7 +7,6 @@ This version requires NoLimits attraction license and NL ver 2.5.3.4 or later
 import os
 import sys
 import Tkinter as tk
-import tkMessageBox
 import ttk
 from MoveState import MoveState
 import win32gui # for set_focus
@@ -26,7 +25,7 @@ class CoasterGui(object):
         self.park_name = []
         self._park_callback = None
 
-    def init_gui(self, master, limits):
+    def init_gui(self, master):
         self.master = master
         frame = tk.Frame(master)
         frame.grid()
@@ -42,7 +41,7 @@ class CoasterGui(object):
         self.pause_button = tk.Button(master, height=2, width=16, text="Pause", command=self.pause, underline=0)
         self.pause_button.grid(row=1, column=2, padx=(30))
 
-        self.reset_button = tk.Button(master, height=2, width=16, text="Reset",
+        self.reset_button = tk.Button(master, height=2, width=16, text="Reset Rift",
                                       command=self.reset, underline=0)
         self.reset_button.grid(row=1, column=3, padx=(24))
 
@@ -57,21 +56,28 @@ class CoasterGui(object):
             self.park_listbox["values"] = self.park_name
             self.park_listbox.bind("<<ComboboxSelected>>", lambda _ : self._park_by_index(self.park_listbox.current()))
             self.park_listbox.current(0)
-
         self.coaster_status_label = tk.Label(label_frame, text="Waiting for Coaster Status", font=(None, 24),)
         self.coaster_status_label.grid(row=1, columnspan=2, ipadx=16, sticky=tk.W)
 
+        self.intensity_status_Label = tk.Label(label_frame, font=(None, 12),
+                 text="Intensity", fg="orange")
+        self.intensity_status_Label.grid(row=2, column=0, columnspan=2, ipadx=16, sticky=tk.W)
+        
         self.coaster_connection_label = tk.Label(label_frame, fg="red", font=(None, 12),
                text="Coaster Software Not Found (start NL2 or maximize window if already started)")
-        self.coaster_connection_label.grid(row=2, columnspan=2, ipadx=16, sticky=tk.W)
+        self.coaster_connection_label.grid(row=3, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.remote_status_label = tk.Label(label_frame, font=(None, 12),
                  text="Looking for Remote Control", fg="orange")
-        self.remote_status_label.grid(row=3, columnspan=2, ipadx=16, sticky=tk.W)
+        self.remote_status_label.grid(row=4, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.chair_status_Label = tk.Label(label_frame, font=(None, 12),
                  text="Using Festo Controllers", fg="orange")
-        self.chair_status_Label.grid(row=4, column=0, columnspan=2, ipadx=16, sticky=tk.W)
+        self.chair_status_Label.grid(row=5, column=0, columnspan=2, ipadx=16, sticky=tk.W)
+
+        self.temperature_status_Label = tk.Label(label_frame, font=(None, 12),
+                 text="Attempting Connection to VR Computer", fg="red")
+        self.temperature_status_Label.grid(row=6, column=0, columnspan=2, ipadx=16, sticky=tk.W)
 
         bottom_frame = tk.Frame(master, pady=16)
         bottom_frame.grid(row=5, columnspan=3)
@@ -94,6 +100,10 @@ class CoasterGui(object):
 
         master.bind("<Key>", self.hotkeys)
 
+    def set_seat(self, seat):
+        if seat != '':
+           print "seat", int(seat)
+        
     def set_focus(self):
         guiHwnd = win32gui.FindWindow("TkTopLevel",None)
         print guiHwnd
@@ -101,7 +111,7 @@ class CoasterGui(object):
    
     def read_parks(self):
         try:
-            path = os.path.abspath('coaster/parks.cfg')
+            path = os.path.abspath('CoasterParks/parks.cfg')
             with open(path) as f:
                 self.park_path = f.read().splitlines()
                 for park in self.park_path:
@@ -150,9 +160,15 @@ class CoasterGui(object):
     def set_coaster_connection_label(self, label):
         self.coaster_connection_label.config(text=label[0], fg=label[1])
 
-    def chair_status_changed(self, chair_status):
-        self.chair_status_Label.config(text=chair_status[0], fg=chair_status[1])
+    def chair_status_changed(self, status):
+        self.chair_status_Label.config(text=status[0], fg=status[1])
 
+    def temperature_status_changed(self, status):
+        self.temperature_status_Label.config(text=status[0], fg=status[1])
+
+    def intensity_status_changed(self, status):
+        self.intensity_status_Label.config(text=status[0], fg=status[1])
+        
     def set_remote_status_label(self, label):
         self.remote_status_label.config(text=label[0], fg=label[1])
 
@@ -187,13 +203,13 @@ class CoasterGui(object):
                 self.dispatch_button.config(relief=tk.RAISED, state=tk.DISABLED)
                 self.coaster_status_label.config(text="Coaster at Station but deactivated", fg="orange")
 
-            self.pause_button.config(relief=tk.RAISED, state=tk.DISABLED)
+            self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL, text="Prop Platform")
             #self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
 
         elif new_state == MoveState.RUNNING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
-            self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL)
+            self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL, text="Pause")
             self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.coaster_status_label.config(text="Coaster is Running", fg="green3")
         elif new_state == MoveState.PAUSED:
