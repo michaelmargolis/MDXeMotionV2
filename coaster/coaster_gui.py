@@ -8,7 +8,7 @@ import os
 import sys
 import Tkinter as tk
 import ttk
-from MoveState import MoveState
+from coaster_state import RideState
 import win32gui # for set_focus
 
 ATTRACTION_LICENCE = True
@@ -76,7 +76,7 @@ class CoasterGui(object):
         self.chair_status_Label.grid(row=5, column=0, columnspan=2, ipadx=16, sticky=tk.W)
 
         self.temperature_status_Label = tk.Label(label_frame, font=(None, 12),
-                 text="Attempting Connection to VR Computer", fg="red")
+                 text="Attempting Connection to VR PC Server", fg="red")
         self.temperature_status_Label.grid(row=6, column=0, columnspan=2, ipadx=16, sticky=tk.W)
 
         bottom_frame = tk.Frame(master, pady=16)
@@ -115,10 +115,10 @@ class CoasterGui(object):
             with open(path) as f:
                 self.park_path = f.read().splitlines()
                 for park in self.park_path:
-                    #print self.park_path
+                    #  print park
                     p = park.split('/')
                     p = p[len(p)-1]
-                    #print p,
+                    #  print p,
                     self.park_name.append(p.split('.')[0])
             self.park_listbox.configure(state="disabled")
             print "available parks are:", self.park_name
@@ -193,7 +193,7 @@ class CoasterGui(object):
         """
     def process_state_change(self, new_state, isActivated):
         #  print "in coaster gui process state change, new state is", new_state
-        if new_state == MoveState.READY_FOR_DISPATCH:
+        if new_state == RideState.READY_FOR_DISPATCH:
             if isActivated:
                 print "Coaster is Ready for Dispatch"
                 self.dispatch_button.config(relief=tk.RAISED, state=tk.NORMAL)
@@ -207,22 +207,22 @@ class CoasterGui(object):
             #self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
 
-        elif new_state == MoveState.RUNNING:
+        elif new_state == RideState.RUNNING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL, text="Pause")
             self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.coaster_status_label.config(text="Coaster is Running", fg="green3")
-        elif new_state == MoveState.PAUSED:
+        elif new_state == RideState.PAUSED:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.SUNKEN, state=tk.NORMAL)
             self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
             self.coaster_status_label.config(text="Coaster is Paused", fg="orange")
-        elif new_state == MoveState.EMERGENCY_STOPPED:
+        elif new_state == RideState.EMERGENCY_STOPPED:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
             self.coaster_status_label.config(text="Emergency Stop", fg="red")
-        elif new_state == MoveState.RESETTING:
+        elif new_state == RideState.RESETTING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.reset_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
