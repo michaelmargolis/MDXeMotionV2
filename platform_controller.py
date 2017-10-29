@@ -108,6 +108,9 @@ class Controller:
     def swell_for_access(self):
         chair.swell_for_access(4)  # four seconds in up pos
 
+    def park_platform(self, state):
+        chair.park_platform(state)
+                     
     def set_intensity(self, intensity):
         lower_payload_weight = 20  # todo - move these or replace with real time load cell readings 
         upper_payload_weight = 90
@@ -163,6 +166,10 @@ class Controller:
         elif 'intensity' in cmd:
              m,intensity = cmd.split('=',2)
              controller.set_intensity(int(intensity)) 
+        elif cmd == "parkPlatform":
+             controller.park_platform(True)
+        elif cmd == "unparkPlatform":
+             controller.park_platform(False)
         elif cmd == "quit":
             # prompts with tk msg box to confirm 
             controller.quit() 
@@ -199,7 +206,7 @@ def main():
     previous = time.time()
     chair_status = None
     if client.begin(controller.cmd_func, controller.move_func, chair.get_limits()) == False: 
-        return  # exit if can't connect to client
+        return  # exit if client forces exit
 
     ###client.service()
     ###controller.disable_platform()
@@ -210,13 +217,10 @@ def main():
         if(time.time() - previous >= frameRate *.99):
             #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))
             previous = time.time()
-            """
             if chair_status != chair.get_output_status():
                 chair_status = chair.get_output_status()
                 client.chair_status_changed(chair_status)
-            """
             client.service()
-                
             #  print format("in controller, service took %.1f ms" % ((time.time() - previous) * 1000))
 
 if __name__ == "__main__":

@@ -16,11 +16,10 @@ from coaster_gui import CoasterGui
 from coaster_state import ConnectStatus, RideState
 from serial_remote import SerialRemote
 
-import pc_address
+#import pc_address
 
 from pc_monitor import pc_monitor_client
-#temperature = system_temperature((40,60),(75,90))
-temperature = pc_monitor_client((40,60),(75,90))
+heartbeat = pc_monitor_client((40,60),(75,90))
 
 class CoasterEvent:
     ACTIVATED, DISABLED, PAUSED, UNPAUSED, DISPATCHED, ESTOPPED, STOPPED, RESETEVENT = range(8)
@@ -63,7 +62,7 @@ class State(object):
             #  print "coaster event is",CoasterEventStr[event], "active state is", self.is_chair_active
         if self.is_chair_active:
             if event == CoasterEvent.STOPPED and self._state != RideState.READY_FOR_DISPATCH:
-                # here if stopped at station
+                #  here if stopped at station
                 self._state = RideState.READY_FOR_DISPATCH
                 self._state_change()
             elif event == CoasterEvent.DISPATCHED and self._state != RideState.RUNNING:
@@ -82,7 +81,7 @@ class State(object):
         else:
             #  things to do if chair has been disabled:
             if event == CoasterEvent.RESETEVENT and self._state != RideState.RESETTING:
-                print "resetevent, state  = ", self._state
+                #  print "resetevent, state  = ", self._state
                 if self._state == RideState.DISABLED:
                     print "here if coaster moving at startup"
                 self._state = RideState.RESETTING
@@ -93,7 +92,7 @@ class State(object):
                 self._state_change()
             if event == CoasterEvent.STOPPED and self._state != RideState.READY_FOR_DISPATCH:
                 #  here if stopped at station
-                #  print "stopped at station while deactivated, state = ", self._state
+                # print "stopped at station while deactivated, state = ", self._state
                 self._state = RideState.READY_FOR_DISPATCH
                 self._state_change()
                 #  print "state=", self.state
@@ -102,6 +101,7 @@ class State(object):
         if self.position_requestCB is not None:
             self.position_requestCB(self._state)  # tell user interface that state has changed
 
+colors = ["green3","orange","red"] # for warning level text
 
 class InputInterface(object):
     USE_GUI = True
@@ -123,7 +123,8 @@ class InputInterface(object):
         self.isLeavingStation = False  # set true on dispatch, false when no longer in station
         self.coasterState = State(self.process_state_change)
         self.rootTitle = "NL2 Coaster Ride Controller"  # the display name in tkinter
-        self.frame = 0 
+        self.prev_heartbeat = 0
+        self.server_address = None # set on receipt of hearbeat from server
 
     def init_gui(self, master):
         self.gui.init_gui(master)
@@ -133,71 +134,15 @@ class InputInterface(object):
         result = tkMessageBox.askquestion(msg, icon='warning')
         return result != 'no'
 
-    """
-    def is_coaster_connected(self):
-        ret = False
-        while not self.coaster.is_NL2_accessable():
-            self.master.update_idletasks()
-            self.master.update()
-            if self.connection_msgbox("Waiting for NoLimits Coaster", "Coaster Sim not found, Start NoLimits and press Yes to retry, No to quit") == False:
-                return False
-            self.master.update_idletasks()
-            self.master.update()
-            if self.coaster.connect_to_coaster():
-                #  print "connected"
-                self.coaster.set_manual_mode()
-                ret = True
-                break
-            else:
-                print "Failed to connect to coaster"
-                print "Use shortcut to run NoLimits2 in Telemetry mode"
-
-        if ret and self.coaster.is_NL2_accessable():            
-            self.gui.set_coaster_connection_label(("Coaster Software Connected", "green3"))
-        else:
-            self.gui.set_coaster_connection_label(("Coaster Software Not Found"
-                                                "(start NL2 or maximize window if already started)", "red"))
-        if ret == True:
-            self.gui.set_park_callback(self.coaster.load_park)
-            self.coaster.set_manual_mode()
-            self.coaster.reset_park(False)
-            self.coasterState.coaster_event(CoasterEvent.STOPPED)
-            #self.process_state_change(RideState.READY_FOR_DISPATCH)
-
-            #self.gui.set_focus()
-        return ret
-    """  
-
     def _sleep_func(self, duration):
         start = time.time()
         while time.time() - start < duration:
             self.master.update_idletasks()
             self.master.update()
 
-    def check_is_stationary(self, speed):
-        if speed < 0.1:
-            #if self.coaster.get_station_status(bit_train_in_station | bit_current_train_in_station):
-            if self.coaster.is_train_in_station():
-                print "in station check, leaving flag is", self.isLeavingStation, speed
-                if self.isLeavingStation == False:
-                   "in station check, state is ",  self.coasterState
-                   if self.coasterState.state == RideState.RUNNING:
-                       print "train arrived in station"
-                   return True
-                ##print "CAN DISPATCH"
-            else:
-                print "in station check, setting leaving flag to false"  
-                self.isLeavingStation = False
-                
-            if time.time() - self.prev_movement_time > 3:
-                return True
-        else:
-            self.prev_movement_time = time.time()
-        return False
-
     def command(self, cmd):
         if self.cmd_func is not None:
-            print "Requesting command with", cmd
+            print "Requesting command:", cmd
             self.cmd_func(cmd)
 
     def dispatch(self):
@@ -208,6 +153,8 @@ class InputInterface(object):
             while not self.coaster.prepare_for_dispatch():
                  self._sleep_func(1)
             self.command("ready")  # slow rise of platform
+            self.command("unparkPlatform")
+            print "todo check delay is needed to free platform"
             #  self._sleep_func(1)
             self.coaster.dispatch()
             print "dispatched"
@@ -325,39 +272,6 @@ class InputInterface(object):
 
         self.gui.process_state_change(new_state, self.is_chair_activated)
 
-    def begin(self, cmd_func, move_func, limits):
-        self.cmd_func = cmd_func
-        self.move_func = move_func
-        #self.limits = limits
-        print "attempting to connect to VR server pc:", pc_address._ip_address
-        self.gui.set_coaster_connection_label(("Waiting connection to NoLimits @ " + pc_address._ip_address, "red"))
-        self._sleep_func(0.1)
-        while not temperature.begin(pc_address._ip_address, 10010):
-            print "unable to connect to pc_monitor"
-            if self.USE_GUI:
-                self._sleep_func(1)
-        status = temperature.read()
-        if "error" in status:
-            self.coaster.set_coaster_status(coaster_interface.bit_is_pc_connected, False)
-            self.temperature_status_changed((status, "red"))
-        else:
-            self.coaster.set_coaster_status(ConnectStatus.is_pc_connected, True)
-            colors = ["green3","orange","red"]
-            self.temperature_status_changed((status[0], colors[status[1]]))
-        self.gui.set_coaster_connection_label(("Attempting to connect to No Limits", "red"))
-        while not self.coaster.begin():
-            status  = self.coaster.get_coaster_status()
-            self.gui.set_coaster_connection_label((status[1], status[2]))
-            print "Trying to connect to NoLimits, check PC connected and coaster is in play mode"
-            self._sleep_func(1)
-        print "connected to NoLimits"
-        self.coaster.set_manual_mode()
-        self.gui.set_park_callback(self.load_park)
-        self.coaster.reset_park(False)
-        #self.process_state_change(RideState.READY_FOR_DISPATCH)
-        self.coasterState.coaster_event(CoasterEvent.STOPPED)
-        return True
-
     def load_park(self, isPaused, park):
         print "load park", park
         self.coasterState.coaster_event(CoasterEvent.RESETEVENT) 
@@ -368,60 +282,154 @@ class InputInterface(object):
 
     def fin(self):
         # client exit code goes here
-        temperature.fin()
+        heartbeat.fin()
 
     def get_current_pos(self):
         return self.current_pos
-        
+
+    def begin(self, cmd_func, move_func, limits):      
+        self.cmd_func = cmd_func
+        self.move_func = move_func
+        #self.limits = limits
+        heartbeat.begin()
+        self.coaster.begin()
+        self.gui.set_park_callback(self.load_park)
+        while not self.connect():
+             self._sleep_func(0.1)
+        self.coaster.reset_park(False)
+        return True  # now always returns true, connections are completed in service if necessary
+    
+    def check_heartbeat(self):
+        addr, heartbeat_status, warning = heartbeat.read()
+        #  print "in connect, addr = ", addr,  addr[1] == 10011
+        if len(addr[0]) > 6 and addr[1]  == 10011: #  server sends on port 10011
+            self.prev_heartbeat = time.time()
+            if self.server_address != addr[0]:
+                self.server_address = addr[0]
+                print "first time connection to server @", self.server_address
+            #  print format("heartbeat {%s:%s} {%s} {%s}" % (addr[0], addr[1], heartbeat_status, warning))
+            self.gui.set_coaster_connection_label((heartbeat_status,colors[warning]))
+            self.temperature_status_changed((heartbeat_status, colors[warning]))
+            self.coaster.set_coaster_status(ConnectStatus.is_pc_connected, True)
+
+        # print "t=", time.time() - self.prev_heartbeat
+        duration = time.time() - self.prev_heartbeat
+        if duration > 3.2: # if no heartbeat after three seconds
+            self.coaster.set_coaster_status(ConnectStatus.is_pc_connected, False)
+            self.temperature_status_changed(("Lost heartbeat with server", "red"))
+            return False
+        elif duration > 2.2: # if no heartbeat after two seconds
+            self.temperature_status_changed(("Missed Heartbeat from Server", "orange"))
+            self.gui.set_coaster_connection_label(("Attempting to connect to No Limits", "red"))
+        return True
+
+    def connect(self):
+        if not self.check_heartbeat():
+            return False
+        elif not self.coaster.check_coaster_status(ConnectStatus.is_nl2_connected):
+            if not self.coaster.connect_to_coaster(self.server_address):
+                print "coaster connect returned false!!!!!!" 
+                self.gui.set_coaster_connection_label(("No connection to NoLimits, is it running?", "red"))
+                self._sleep_func(1)
+            return False
+        elif not self.coaster.check_coaster_status(ConnectStatus.is_in_play_mode):
+            print "!!!NL2 not in play mode"
+            return False
+        else:
+            #  print "All connections ok"
+            # self.coasterState.coaster_event(CoasterEvent.STOPPED)
+            return True
+
+
+    def check_is_stationary(self, speed):
+        if speed < 0.1:
+            #if self.coaster.get_station_status(bit_train_in_station | bit_current_train_in_station):
+            if self.coaster.is_train_in_station():
+                #  print "in station check, leaving flag is", self.isLeavingStation, speed
+                if self.isLeavingStation == False:
+                   #  print "in station check, state is ",  self.coasterState
+                   if self.coasterState.state == RideState.RUNNING:
+                       print "train arrived in station"
+                       self.command("parkPlatform")
+                       print "Todo check if swell or delay is needed here"
+                       return True
+                ##print "CAN DISPATCH"
+            else:
+                #  print "in station check, setting leaving flag to false"  
+                self.isLeavingStation = False
+
+            if time.time() - self.prev_movement_time > 3:
+                #  print "speed", speed
+                return True
+        else:
+            self.prev_movement_time = time.time()
+            self.gui.set_coaster_status_label(speed)
+        return False
+
     def service(self):
         self.RemoteControl.service()
-        if self.frame % 20 == 0:  # assumes 20 frames per second
-            status = temperature.read()
-            if "error" in status:
-                self.temperature_status_changed((status, "red"))
-            else:
-                colors = ["green3","orange","red"]
-                self.temperature_status_changed((status[0], colors[status[1]]))
-        self.frame += 1
-        status  = self.coaster.get_coaster_status()
-        self.gui.set_coaster_connection_label((status[1], status[2]))
-        input_field = self.coaster.get_telemetry()
-        #  print len(input_field), "data fieldsfrom coaster", input_field 
-        #if self.coaster.get_telemetry_status() and input_field and len(input_field) == 3:
-        if input_field and len(input_field) == 4:
-            is_in_play_mode = input_field[0]
-            # print "is_in_play_mode",  is_in_play_mode
-            if is_in_play_mode:
-                self.gui.set_coaster_connection_label(("Receiving Coaster Telemetry", "green3"))
-                isRunning = input_field[1]
-                self.speed = float(input_field[2])
-                self.isNl2Paused = not isRunning
-                if isRunning:
-                    if self.coasterState.state == RideState.PAUSED:
-                         self.coasterState.coaster_event(CoasterEvent.UNPAUSED)
-                    if self.speed < 0.1:
-                        if not self.isLeavingStation:
-                            if self.coaster.is_train_in_station():
-                                if self.coaster.is_in_play_mode():
-                                    self.coasterState.coaster_event(CoasterEvent.STOPPED)
+        if self.connect():
+            status  = self.coaster.get_coaster_status()
+            self.gui.set_coaster_connection_label((status[1], status[2]))
+            input_field = self.coaster.get_telemetry()
+            # print len(input_field), "data fieldsfrom coaster", input_field 
+            #if self.coaster.get_telemetry_status() and input_field and len(input_field) == 3:
+            if input_field and len(input_field) == 4:
+                is_in_play_mode = input_field[0]
+                # print "is_in_play_mode",  is_in_play_mode
+                if is_in_play_mode:
+                    self.gui.set_coaster_connection_label(("Receiving Coaster Telemetry", "green3"))
+                    isRunning = input_field[1]
+                    self.speed = float(input_field[2])
+                    self.isNl2Paused = not isRunning
+                    if isRunning:
+                        # print "is running"
+                        if self.check_is_stationary(self.speed):
+                            #  print "is stopped??"
+                            self.coasterState.coaster_event(CoasterEvent.STOPPED)
+                            #  here if coaster not moving and not paused
+                            #  print "Auto Reset"
+                        else:
+                            if self.coasterState.state == RideState.DISABLED:
+                                # coaster is moving at startup
+                                self.coasterState.coaster_event(CoasterEvent.RESETEVENT)
+                            else:                                
+                                self.coasterState.coaster_event(CoasterEvent.UNPAUSED)
+                    else:
+                        self.coasterState.coaster_event(CoasterEvent.PAUSED)
+                    #  print isRunning, speed
+                    """  
+                        if self.coasterState.state == RideState.PAUSED:
+                             self.coasterState.coaster_event(CoasterEvent.UNPAUSED)
+                        if self.speed < 0.1:
+                            print "speed", self.speed
+                            if not self.isLeavingStation:
+                                print "not leaving station"
+                                if self.coaster.is_train_in_station():
+                                    print "coaster is in station"
+                                    if self.coaster.is_in_play_mode():
+                                        print "setting stop state because in station"
+                                        self.coasterState.coaster_event(CoasterEvent.STOPPED)
+                                    else:
+                                        self.gui.set_coaster_connection_label(("Coaster not in play mode", "red"))
+                                        return
                                 else:
-                                    self.gui.set_coaster_connection_label(("Coaster not in play mode", "red"))
-                                    return
-                              
+                                    print "train is not in station ??, status=",  self.coaster.is_train_in_station()
+                        self.coasterState.coaster_event(CoasterEvent.PAUSED)
+                    """
+                    #  print isRunning, speed
                 else:
-                    self.coasterState.coaster_event(CoasterEvent.PAUSED)
-                #  print isRunning, speed
+                    self.gui.set_coaster_connection_label(("Coaster not in play mode", "red"))
 
-                if len(input_field[3]) == 6:  # check if we have data for all 6 DOF
-                    self.current_pos = [float(f) for f in input_field[3]]
+                if  input_field[3] and len(input_field[3]) == 6:  # check if we have data for all 6 DOF
+                        self.current_pos = [float(f) for f in input_field[3]]
                 if self.is_chair_activated and self.coasterState.state != RideState.READY_FOR_DISPATCH:
-                    # only send if activated and not waiting in station
-                    if self.move_func is not None:
-                        self.move_func(self.current_pos)
+                        # only send if activated and not waiting in station
+                        if self.move_func is not None:
+                            self.move_func(self.current_pos)
+
             else:
-                self.gui.set_coaster_connection_label(("Coaster not in play mode", "red"))
-        else:
-            errMsg = format("Telemetry error: %s" % self.coaster.get_telemetry_err_str())
-            #  print errMsg
-            self.gui.set_coaster_connection_label((errMsg, "red"))
+                errMsg = format("Telemetry error: %s" % self.coaster.get_telemetry_err_str())
+                #  print errMsg
+                self.gui.set_coaster_connection_label((errMsg, "red"))
 

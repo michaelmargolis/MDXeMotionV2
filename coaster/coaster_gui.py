@@ -9,7 +9,6 @@ import sys
 import Tkinter as tk
 import ttk
 from coaster_state import RideState
-import win32gui # for set_focus
 
 ATTRACTION_LICENCE = True
 
@@ -103,12 +102,16 @@ class CoasterGui(object):
     def set_seat(self, seat):
         if seat != '':
            print "seat", int(seat)
-        
+
+    """
     def set_focus(self):
+        # not used in this version
+        #needs: import win32gui # for set_focus
         guiHwnd = win32gui.FindWindow("TkTopLevel",None)
         print guiHwnd
         win32gui.SetForegroundWindow(guiHwnd)
-   
+    """
+
     def read_parks(self):
         try:
             path = os.path.abspath('CoasterParks/parks.cfg')
@@ -157,6 +160,9 @@ class CoasterGui(object):
             self.deactivation_button.config(text="Deactivated", relief=tk.SUNKEN)
             self.park_listbox.configure(state="readonly")
 
+    def set_coaster_status_label(self, speed):
+        self.coaster_status_label.config(text=format("Coaster is Running %2.1fm/s" % (speed)), fg="green3")
+        
     def set_coaster_connection_label(self, label):
         self.coaster_connection_label.config(text=label[0], fg=label[1])
 
@@ -204,13 +210,12 @@ class CoasterGui(object):
                 self.coaster_status_label.config(text="Coaster at Station but deactivated", fg="orange")
 
             self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL, text="Prop Platform")
-            #self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
             self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
 
         elif new_state == RideState.RUNNING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.RAISED, state=tk.NORMAL, text="Pause")
-            self.reset_button.config(relief=tk.RAISED, state=tk.DISABLED)
+            self.reset_button.config(relief=tk.RAISED, state=tk.NORMAL)
             self.coaster_status_label.config(text="Coaster is Running", fg="green3")
         elif new_state == RideState.PAUSED:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
@@ -225,5 +230,5 @@ class CoasterGui(object):
         elif new_state == RideState.RESETTING:
             self.dispatch_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
             self.pause_button.config(relief=tk.RAISED, state=tk.DISABLED)
-            self.reset_button.config(relief=tk.SUNKEN, state=tk.DISABLED)
+            self.reset_button.config(relief=tk.SUNKEN, state=tk.NORMAL)
             self.coaster_status_label.config(text="Coaster is resetting", fg="blue")

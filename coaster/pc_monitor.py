@@ -1,162 +1,112 @@
 """
-pc_monitor  - this version is for the pi
+pc_monitor
 
-returns CPU and GPU temperatires in degrees CPU
+receives UDP hearbeat messages from the server
+containing CPU and GPU temperatires in degrees CPU
 
 """
 
-"""
-from pynvml import *
-import wmi
-"""
-
-import collections
+import sys
 import socket
-#import SocketServer
+import threading
+import time
+from Queue import Queue
+
+import traceback
+
 
 deg = u"\N{DEGREE SIGN}"
 
 class pc_monitor_client():
     def __init__(self, cpu_thresholds, gpu_thresholds): 
         self.cpu_threshold = cpu_thresholds
-        self.gpu_threshold = gpu_thresholds      
+        self.gpu_threshold = gpu_thresholds
+        self.HOST = ""
+        self.PORT = 10010
+        self.inQ = Queue()
         
-    def begin(self, coaster_ip_addr, monitor_port):
-        self.coaster_ip_addr = coaster_ip_addr
-        self.monitor_port = monitor_port
-        return self._connect()
-
-    def _connect(self):
-        try:
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.sock.connect((self.coaster_ip_addr, self.monitor_port))
-            print "connected to VR pc"
-            return True
-        except socket.error as serr:
-            print self.coaster_ip_addr, serr
+    def begin(self):
+        self.thread = threading.Thread(target=self.listener_thread, args=(self.inQ, self.HOST, self.PORT))
+        if self.thread:
+           self.thread.daemon = True
+           self.thread.start()
+           return True
+        else:
             return False
 
+
     def read(self):
-        try:
-            self.sock.send('heat?')
-            # todo add exception handling
-            warning_level = 0
-            data = self.sock.recv(512)
-            vals = data.split(',',1)
-            d = dict(v.split('=') for v in vals)
-            if 'cpu' in d and d['cpu'].isdigit():
-                cpu = int(d['cpu'])
-                cpu_string = format("CPU temperature %d%sC, " % (cpu, deg))
-                if cpu > self.cpu_threshold[1]:
-                     warning_level = 2
-                elif cpu > self.cpu_threshold[0]:
-                     warning_level = max(warning_level,1)
-            else:
-                cpu_string = "CPU Temperature ??   "
-                warning_level = 1
-            if 'gpu' in d and  d['gpu'].isdigit():
-                gpu = int(d['gpu'])
-                gpu_string = format(" GPU: %d%sC" % (gpu, deg))
-                if gpu > self.gpu_threshold[1]:
-                    warning_level = 2
-                elif gpu > self.gpu_threshold[0]:
-                    warning_level = max(warning_level,1)
-            else:
-                gpu_string = "GPU ??"
-            
-            return cpu_string + gpu_string, warning_level
-        except socket.error as serr:
-            print serr
-            self._connect()
-            return  "error accessing VR PC"  
-
-    def fin(self):
-        self.sock.close()
-
-"""
-this class runs on the pc running VR
-
-class PC_monitor():
-    # thresholds are levels for warnings and error indicators
-    def __init__(self): 
-        self.wmi = wmi.WMI(namespace="root\wmi")
-        
-        try:
-            nvmlInit()
-            #print "Driver Version:", nvmlSystemGetDriverVersion()
-            numOfGPUs = int(nvmlDeviceGetCount())
-            if numOfGPUs ==0:
-               print "Error, no Nvidia GPUs found"
-            elif numOfGPUs > 1:
-                print numOfGPUs, "GPUs found, only displaying first"
-            self.nvml_handle = nvmlDeviceGetHandleByIndex(0)
-        except NVMLError, err:
-            print "Failed to initialize NVML: ", err
-
-    #  returns cpu and gpu temperature 
-    def read(self):
+        # returns tuple of: IP address of server, temperature strings, warning level(0-2) 
+        # IP address will be "" if no heartbeat available
+        payload = None
+        status = ""
+        addr = ("", 0)
         warning_level = 0
+        # throw away all but most recent message
+        #  print "in read()"
+        while not self.inQ.empty():
+            payload = self.inQ.get()
+            #  print "in Q, payload", payload, "..."
         try:
-          temp = []
-          for zone in range(4):
-             temperature_info = self.wmi.MSAcpi_ThermalZoneTemperature()[zone]
-             t = (temperature_info.CurrentTemperature-2730)/10
-             temp.append(t)
-        except IndexError:
-            pass
-        except Exception, e:
-            if "Unexpected COM Error" in str(e):
-               temp = None
-            else:
-                print e
+            if payload != None:
+                # print "payload", payload, payload[0], payload[0].rstrip()
+                data = payload[0].rstrip()
+                addr = payload[1]
+                #print format("data {%s}, addr [%s] [%s]" % (data, addr[0], addr[1]))
+                vals = data.split(',',1)
+                d = dict(v.split('=') for v in vals)
+                if 'CPU' in d and d['CPU'].isdigit():
+                    cpu = int(d['CPU'])
+                    cpu_string = format("CPU temperature %d%sC, " % (cpu, deg))
+                    status = cpu_string                  
+                    if cpu > self.cpu_threshold[1]:
+                         warning_level = 2
+                    elif cpu > self.cpu_threshold[0]:
+                         warning_level = max(warning_level,1)
+                else:
+                    cpu_string = "CPU Temperature ??   "
+                    warning_level = 1
+                if 'GPU' in d and  d['GPU'].isdigit():
+                    gpu = int(d['GPU'])
+                    gpu_string = format(" GPU: %d%sC" % (gpu, deg))
+                    if gpu > self.gpu_threshold[1]:
+                        warning_level = 2
+                    elif gpu > self.gpu_threshold[0]:
+                        warning_level = max(warning_level,1)
+                else:
+                    gpu_string = "GPU ??"
+                status += gpu_string
 
-        #print temp
-
-        if temp == None:
-            cpu_string = "CPU=??,"
-        else:   
-            cpu_string = format("cpu=%d," % (max(temp)))
-
-        try:
-            gpu_string = "GPU ???"
-            if self.nvml_handle:
-                 t = nvmlDeviceGetTemperature(self.nvml_handle, NVML_TEMPERATURE_GPU)
-                 gpu_string = format("gpu=%d" % (t))
+                #  print format("In pc monitor, heartbeat {%s:%s} {%s} {%d}" % (addr[0], addr[1], data, warning_level))
+            return addr, status, warning_level
         except:
-             print "error reading GPU temperature" 
-             warning_level = max(warning_level,1)
-
-        #print cpu_string + gpu_string
-        return cpu_string + gpu_string
+            #  print error if input not a string or cannot be converted into valid request
+            e = sys.exc_info()[0]
+            s = traceback.format_exc()
+            print e, s
+            return ("", 0), "Error", 2
 
     def fin(self):
-        nvmlShutdown()
+       pass
 
-if __name__ == '__main__':
-    pc_monitor = PC_monitor()
-    HOST, PORT = '', 10010
-    # Create the server, binding to localhost on port effector port
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((HOST, PORT))
-    sock.listen(2)
-    print "PC Monitor server ready to receive on port ",PORT
-
-    try:
+          
+    def listener_thread(self, inQ, HOST, PORT):
+        try:
+            MAX_MSG_LEN = 128
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind((HOST, PORT))
+            #print "opening socket on", PORT
+            self.inQ = inQ
+        except:
+            e = sys.exc_info()[0]
+            s = traceback.format_exc()
+            print "thread init err", e, s
         while True:
-            newSocket, address = sock.accept( )
-            print "Connected from", address
-            while True:
-                receivedData = newSocket.recv(512)
-                if not receivedData: break
-                if "heat?" in receivedData:
-                    t = pc_monitor.read()
-                    t = t.encode('ascii', 'ignore').decode('ascii')
-                    print "sending", t
-                    newSocket.send(t)
-        newSocket.close(  )
-        print "Disconnected from", address
-    finally:
-        sock.close(  )
-"""
-
+            try:
+                msg, addr = sock.recvfrom(MAX_MSG_LEN)
+                #  print "in thread:", msg, addr
+                self.inQ.put((msg,addr))
+            except:
+                e = sys.exc_info()[0]
+                s = traceback.format_exc()
+                print "listener err", e, s
