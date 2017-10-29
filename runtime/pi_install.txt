@@ -1,0 +1,41 @@
+Instructions for software install on Raspberry Pi
+
+install Raspbian Stretch (Debian version 9) on SD card
+ (see :https://www.raspberrypi.org/documentation/installation/installing-images/README.md)
+
+connect to network
+sudo apt-get update
+sudo apt-get install xterm
+
+pip install pillow (for PIL imaging library)
+
+From Raspberry Pi Preferences > Config
+ System:
+  change password from raspberry to raspberry1 (so SSH won't complain about default pw)
+  disable splash screen
+ Interfaces:
+  SSH enabled
+
+Edit /etc/dhcpcd.conf to set a fixed ip address of 192.168.0.2
+   for example:
+       interface eth0
+       static ip_address=192.168.0.2
+       static routers=192.168.0.1
+       static domain_name_servers=192.168.0.1
+
+reboot Pi
+
+Create a directory named runtime under the home directory
+
+Copy the master files to the Pi using FTP or via USB drive
+copy runtime files and subdirectories into runtime directory created above
+Copy start_runtime.sh  and  MDX_BLACK.jpg  to home directory
+
+Change desktop wallpaper picture to MDX_BLACK.jpg (preferences->appearance settings)
+
+make the following bash script executable:
+start_runtime.sh in home directory (sudo chmod +x start_runtime.sh )
+python_imports.sh in home directory (sudo chmod +x python_imports.sh)
+
+
+
