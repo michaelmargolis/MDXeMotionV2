@@ -12,7 +12,6 @@ percent is calculated as follows:
 
 import sys
 import socket
-import threading  # for checking if festo replies
 import traceback
 import math
 import time
@@ -38,8 +37,6 @@ PRINT_MUSCLES = False
 PRINT_PRESSURE_DELTA = True
 WAIT_FESTO_RESPONSE = False #True
 OLD_FESTO_CONTROLLER = False
-
-is_festo_responding = False # flag set true when responses arrive
 
 if TESTING:
     print "THIS IS TESTING MODE, no output to Festo!!!"
@@ -94,44 +91,15 @@ class OutputInterface(object):
                 print "unable to open Out simulator serial port", OutSerialPort
         elif not TESTING:
             self.FSTs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.FST_addr = (FST_ip, FST_port)
+            self.FST_addr = (FST_ip, FST_port)         
             if not OLD_FESTO_CONTROLLER:
-                print "Note: FST bind moved to thread"
-                # self.FSTs.bind(('0.0.0.0', 0))
+                self.FSTs.bind(('0.0.0.0', 0))
                 self.FSTs.settimeout(1)  # timout after 1 second if no response
         print ""
         self.prevMsg = []
         self.use_gui = False # defualt is no gui
+        self.activate_piston_flag = 0  # park piston is extended when flag set to 1, parked when 0
         
-        self.thread = threading.Thread(target=self.listener_thread, args=(FST_ip, FST_port))
-        if self.thread:
-           self.thread.daemon = True
-           self.thread.start()
-    
-    def listener_thread(self, HOST, PORT):
-        global is_festo_responding
-        try:
-            MAX_MSG_LEN = 1024
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(1)  # timout after 1 second if no response
-            #  sock.bind(('127.0.0.1', PORT))
-            sock.bind((HOST, PORT))
-            print "Festo listener opening socket on", PORT
-        except:
-            e = sys.exc_info()[0]
-            s = traceback.format_exc()
-            print "thread init err", e, s
-        while True:
-            try:              
-                msg, addr = sock.recvfrom(MAX_MSG_LEN)              
-                is_festo_responding = True
-            except socket.timeout:
-                is_festo_responding = False
-            except:
-                e = sys.exc_info()[0]
-                s = traceback.format_exc()
-                print "listener err", e, s
-
     def init_gui(self, master):
         self.gui = OutputGui()
         self.gui.init_gui(master, MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN)
@@ -199,11 +167,8 @@ class OutputInterface(object):
                         return ("Festo Pressure is High", "orange")
                     else:
                         return ("Festo Pressure is Good", "green3")  # todo, also check if pressure is low
-            else:              
-                if is_festo_responding: 
-                    return ("Festo controller is connected", "green3")
-                else:
-                    return ("No Ack from Festo controller", "orange")
+            else:        
+                return ("New Festo controller response not enabled", "orange")
 
     def get_platform_mid_height(self):
         """
@@ -236,6 +201,7 @@ class OutputInterface(object):
                 pass
                 #  self._slow_move(self.platform_disabled_pos, actuator_lengths, 1000)
             else:
+                self.activate_piston_flag = 0
                 self._slow_move(actuator_lengths, self.platform_disabled_pos, 1000)
             
     def move_to_limits(self, pos):
@@ -268,10 +234,12 @@ class OutputInterface(object):
 
     def park_platform(self, state):
         if state:
-            print "send festo command to park by pressurizing piston"
+            self.activate_piston_flag = 0
+            print "setting flag to activate pistion to 0"
         else:
-            print "send festo command to unpark by venting piston" 
-
+            self.activate_piston_flag = 1
+            print "setting flag to activate pistion to 1"
+            
     def move_platform(self, lengths):  # lengths is list of 6 actuator lengths as millimeters
         """
         Move all platform actuators to the given lengths
@@ -439,12 +407,15 @@ class OutputInterface(object):
         if not TESTING:
             try:
                 if not OLD_FESTO_CONTROLLER:
+                    muscle_pressures.append(self.activate_piston_flag)
+                    print  muscle_pressures
                     packet = easyip.Factory.send_flagword(0, muscle_pressures)
                     try:
                         self._send_packet(packet)
                         if WAIT_FESTO_RESPONSE:
                             self.actual_pressures = self._get_pressure()
                             delta = [act - req for req, act in zip(muscle_pressures, self.actual_pressures)]
+                            # todo - next line needs changing because park flag now appended to list
                             self.pressure_percent = [int(d * 100 / req) for d, req in zip(delta, muscle_pressures)]
                             if PRINT_PRESSURE_DELTA:
                                 print muscle_pressures, delta, self.pressure_percent
