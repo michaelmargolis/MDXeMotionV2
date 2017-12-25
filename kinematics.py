@@ -22,8 +22,15 @@ class Kinematics(object):
     returns numpy array of actuator lengths for given request orientation
     """
     def inverse_kinematics(self, request):
+        # print "kinematics request: ", request,
         adj_req = copy.copy(request)
-        adj_req[2] = self.platform_mid_height - adj_req[2]  # z axis displacement value is offset from center 
+        
+        adj_req[2] = self.platform_mid_height + adj_req[2]  # z axis displacement value is offset from center 
+        if self.platform_mid_height < 0: # is fixed platform above moving platform
+            adj_req[2] = -adj_req[2]  # invert z value on inverted stewart platform
+
+        #####adj_req[2] = self.platform_mid_height - adj_req[2]  # z axis displacement value is offset from center 
+        print "z = ", request[2], "adjusted z =:", adj_req[2]
         a = np.array(adj_req).transpose()
         roll = a[3]  # positive roll is right side down
         pitch = -a[4]  # positive pitch is nose down

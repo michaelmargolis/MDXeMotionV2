@@ -18,7 +18,7 @@ import time
 import copy
 import numpy as np
 from output_gui import OutputGui
-#  import matplotlib.pyplot as plt    #  only for testing
+# import matplotlib.pyplot as plt    #  only for testing
 
 TESTING = False
 if not TESTING:
@@ -28,8 +28,9 @@ if not TESTING:
 """
   Import platform configuration
 """
+from ConfigServo import *
 #  from ConfigV1 import *
-from ConfigV2 import *
+#from ConfigV2 import *
 #  from ConfigServoSim import *
 #  from ConfigServoSimChair import *
 
@@ -86,7 +87,7 @@ class OutputInterface(object):
             #  configure the serial connection
             try:
                 self.ser = serial.Serial(port=OutSerialPort, baudrate=57600, timeout=1)
-                print "Out simulator opened on ", OutSerialPort
+                print "Serial Output simulator opened on ", OutSerialPort
             except:
                 print "unable to open Out simulator serial port", OutSerialPort
         elif not TESTING:
@@ -126,6 +127,7 @@ class OutputInterface(object):
         """
         get coordinates of fixed and moving attachment points and mid height
         """
+        "platform mid height", self.platform_mid_height 
         return base_pos, platform_pos, self.platform_mid_height 
 
     def get_actuator_lengths(self):
@@ -313,20 +315,7 @@ class OutputInterface(object):
         #  print "\nPlatformOutput using %s configuration" %(PLATFORM_NAME)
         #  print "Actuator lengths: Min %d, Max %d, mid %d" %( MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN, MID_ACTUATOR_LEN)
 
-        #  use actuator length and the distance between attachment points to calculate height extents
-        a = np.linalg.norm(base_pos[1]-platform_pos[1])  # distance between consecutive platform attachmment points
-
-        b = MIN_ACTUATOR_LEN
-        platforMin = math.sqrt(b * b - a * a)  # the min vertical movement from center to top or bottom
-        #  print "min height", round(platforMin)
-
-        b = MID_ACTUATOR_LEN
-        self.platform_mid_height = math.sqrt(b * b - a * a)  # the mid vertical movement from center to top or bottom
-        #  print "mid height", round(self.platform_mid_height)
-
-        b = MAX_ACTUATOR_LEN
-        platformMax = math.sqrt(b * b - a * a)  # the max vertical movement from center to top or bottom
-        #  print "max height", round(platformMax)
+        self.platform_mid_height = platform_mid_height
 
         #  uncomment this section to plot the array coordinates
         """
@@ -344,21 +333,19 @@ class OutputInterface(object):
         #  print "platform_pos:\n",platform_pos
 
     def _move_to_serial(self, lengths):
-        """ temp hack tpo produce norm output"""
-        #  msg = 'jsonrpc:,method":"moveEvent","rawArgs"' + ':'.join([str(self.normalize(item)) for item in lengths]) + ']}'
-        #  msg = "rawArgs," + ",".join([str(self.normalize(item)) for item in lengths])
-
-        msg = "rawArgs," + ",".join([str(round(item)) for item in lengths])
-        if msg != self.prevMsg:
-            #  print msg
-            self.prevMsg = msg
+        # msg = "xyzrpy," + ",".join([str(round(item)) for item in lengths])
+        payload =   ",".join('%0.1f' % item for item in lengths)
+        if payload != self.prevMsg:
+            print "lengths: ", payload
+            self.prevMsg = payload
         if self.ser.isOpen():
-            self.ser.write(msg + '\n')
+            self.ser.write("xyzrpy," + payload + '\n')          
             #  print self.ser.readline()
         else:
             print "serial not open"
 
     def _move_to(self, lengths):
+        print "lengths:\t ", ",".join('  %d' % item for item in lengths)
         now = time.clock()
         timeDelta = now - self.prev_time
         self.prev_time = now
@@ -408,7 +395,7 @@ class OutputInterface(object):
             try:
                 if not OLD_FESTO_CONTROLLER:
                     muscle_pressures.append(self.activate_piston_flag)
-                    print  muscle_pressures
+                    print "muscle pressures:",  muscle_pressures
                     packet = easyip.Factory.send_flagword(0, muscle_pressures)
                     try:
                         self._send_packet(packet)

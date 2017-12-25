@@ -79,10 +79,23 @@ platform_pos = [
                 [-330, 260,  0 ]
               ]
 
+import numpy as np
+base_pos_n = np.array(base_pos)
+platform_pos_n = np.array(platform_pos)
 
-#  todo can we calculate the following?
-# the max movement in a single DOF
-platform_1dof_limits = [150, 150, 160, math.radians(25), math.radians(25), math.radians(10)]
+#  print "\nPlatformOutput using %s configuration" %(PLATFORM_NAME)
+#  print "Actuator lengths: Min %d, Max %d, mid %d" %( MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN, MID_ACTUATOR_LEN)
+
+#  use actuator length and the distance between attachment points to calculate height extents
+a = np.linalg.norm(base_pos_n[1]-platform_pos_n[1])  # distance between consecutive platform attachmment points
+
+b = MID_ACTUATOR_LEN
+platform_mid_height = math.sqrt(b * b - a * a)  # the mid vertical distance from center to fixed platform
+platform_mid_height = -platform_mid_height;  # negative becuase this is an inverted stewart platform
+print "mid height", round(platform_mid_height)
+
+#  the range in mm or radians from origin to max extent in a single DOF 
+platform_1dof_limits = [100, 122, 140, math.radians(15), math.radians(20), math.radians(8)]
 
 # limits at extremes of movement
 platform_6dof_limits = [75, 75, 80, math.radians(12), math.radians(12), math.radians(5)]

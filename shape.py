@@ -163,12 +163,12 @@ class Shape(object):
 
     def shape(self, request):
         #  use gain setting to increase or decrease values
-        #  print request
+        # print request
         # print "in shape", request, self.gains, self.master_gain
         r = np.multiply(request, self.gains) * self.master_gain * self.intensity
 
         np.clip(r, -1, 1, r)  # clip normalized values
-        #  print "clipped", r       
+        #  print "clipped", r
         for idx, f in enumerate(self.washout_factor):
             #  if washout enabled and request is less than prev washed value, decay more
             if f != 0 and abs(request[idx]) < abs(self.prev_value[idx]):

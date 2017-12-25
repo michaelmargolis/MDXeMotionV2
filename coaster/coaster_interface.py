@@ -68,6 +68,7 @@ class CoasterInterface():
         self.coaster_port = 15151
         self.interval = .05  # time in seconds between telemetry requests
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.client.settimeout(3)
         self.telemetry_err_str = "Waiting to connect to NoLimits Coaster"
         self.telemetry_status_ok = False
@@ -83,13 +84,12 @@ class CoasterInterface():
         self.nl2_version = None
         #self.can_dispatch = None  # set true when it station ready for dispatch
         #self.train_in_station = None # true when the riders train is in the station
-        self.client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.client.settimeout(3)
+
 
     def begin(self):
         return
         """
-        print "todo fix itf begin"
+        print "todo remove following"
         return True
         print "3 in coaster interface begin"
         if self.connect_to_coaster(ip_addr):
@@ -104,13 +104,13 @@ class CoasterInterface():
         """
  
     def connect_to_coaster(self, coaster_ip_addr):
-        # returns true iff connected to NL2 derver socket and in play mode        
+        # returns true iff connected to NL2 derver socket and in play mode
         if self.check_coaster_status(ConnectStatus.is_pc_connected) == False:
             print "Not connected to VR PC"
             return False
         if self.check_coaster_status(ConnectStatus.is_nl2_connected) == False:
             try:
-                print "attempting connect to NoLimits"
+                print "attempting connect to NoLimits @",coaster_ip_addr 
                 self.client.connect((coaster_ip_addr, self.coaster_port))
                 # here if client connected to NL2
                 self.set_coaster_status(ConnectStatus.is_nl2_connected, True)

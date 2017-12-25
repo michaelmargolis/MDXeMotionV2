@@ -17,12 +17,15 @@ import os
 
 sys.path.insert(0, './client')  # the relative dir containing client files
 sys.path.insert(0, './coaster')  # the relative dir containing coaster files
+sys.path.insert(0, './flight_sim')  # the relative dir containing coaster files
 
-#  from platform_input_tk import InputInterface   #  tkinter gui
+#  from V1_platform_input import InputInterface
+#  from flight_sim_client import InputInterface
+from platform_input_tk import InputInterface   #  tkinter gui
 #  from platform_input import InputInterface    #  keyboard
 #  from platform_input_UDP import InputInterface #  UDP
 #  from platform_input_threadedUDP import InputInterface #  threaded UDP
-from coaster_client import InputInterface
+#from coaster_client import InputInterface
 from kinematics import Kinematics
 from shape import Shape
 from platform_output import OutputInterface
@@ -127,12 +130,13 @@ class Controller:
            return (val - src[0]) * (dst[1] - dst[0]) / (src[1] - src[0])  + dst[0]
 
     def process_request(self, request):
-        #  print "in process"
+        #  print "in process", request
         if client.is_normalized:
             #  print "pre shape", request,
             request = shape.shape(request)  # adjust gain & washout and convert from norm to real
-            #  print "post",request       
+            #  print "post",request
         request = shape.smooth(request)
+        #  print ", after smoothing", request
         ##if self.is_output_enabled:
         return request
 

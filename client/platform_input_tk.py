@@ -49,7 +49,7 @@ import Tkinter as tk
 import ttk
 
 #  InputParmType = 'realworld'  #  can be 'realworld' or 'normalized'
-InputParmType = 'normalized'
+InputParmType = 'normalized'  # values range from -1 to 1
 
 
 class InputInterface(object):
@@ -70,7 +70,8 @@ class InputInterface(object):
         print
         #  additional client init code goes here
 
-    def init_gui(self, master):        
+    def init_gui(self, master):
+
         self.master = master
         frame = tk.Frame(master)
         frame.pack()
@@ -129,10 +130,15 @@ class InputInterface(object):
     def get_current_pos(self):
         return self.levels
 
+    def temperature_status_changed(self, status):
+        pass
+
+    def intensity_status_changed(self, status):
+        pass
+
     def service(self):
         #nothing to do here because TK updates trigger commands to controller
         pass
-
 
 
 

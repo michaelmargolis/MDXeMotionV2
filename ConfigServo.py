@@ -1,7 +1,7 @@
 """
-Created 1 july 2017
+Created 21 dec 2017
 @author: mem
-configuration for V2 chair
+configuration for Servo model
 """
 
 """
@@ -44,9 +44,6 @@ The origin is the center of the circle intersecting the attachment points. The X
 
 
 
- On the V1 lower platform the origin is not midway between the attachment points. The origin can be located
- with a plumb line from the top origin down to the lower platform.
-
 The attachment coordinates can be specified explicitly or with vectors from the origin to
  each attachment point. Uncomment the desired method of entry.
 
@@ -54,31 +51,33 @@ You only need enter values for the left side, the other side is a mirror image a
 """
 import math
 
-PLATFORM_NAME = "Chair v2"
+PLATFORM_NAME = "SERVO_SIM" 
+
+OutSerialPort = 'COM12'
 
 PLATFORM_UNLOADED_WEIGHT = 20  # weight of moving platform without 'passenger' in killograms
 DEFAULT_PAYLOAD_WEIGHT = 65    # weight of 'passenger'
-MAX_MUSCLE_LEN = 800           # length of muscle at minimum pressure
+MAX_MUSCLE_LEN = 80           # length of muscle at minimum pressure
 MIN_MUSCLE_LEN = MAX_MUSCLE_LEN * .75 # length of muscle at maximum pressure
-FIXED_LEN = 200                #  length of fixing hardware
+FIXED_LEN = 0                #  length of fixing hardware
 MIN_ACTUATOR_LEN = MIN_MUSCLE_LEN + FIXED_LEN  # total min actuator distance including fixing hardware
 MAX_ACTUATOR_LEN = MAX_MUSCLE_LEN ++ FIXED_LEN # total max actuator distance including fixing hardware
 MAX_ACTUATOR_RANGE = MAX_ACTUATOR_LEN - MIN_ACTUATOR_LEN
 MID_ACTUATOR_LEN = MIN_ACTUATOR_LEN + (MAX_ACTUATOR_RANGE/2)
 
-DISABLED_LEN = 200 + MAX_MUSCLE_LEN *.99
+DISABLED_LEN = MAX_MUSCLE_LEN *.99  # todo ??
 WINDDOWN_LEN = MAX_ACTUATOR_LEN *.92  # length to enable fitting of stairs
 
 #  uncomment this to define attachment locations using angles and distance from origin (vectors)
-"""
+
 #only the left side is needed (as viewed facing the chair), the other side is calculated for you
 
-_baseAngles    = [302, 295, 185]   # enter angles from origin to attach point
-_baseMagnitude = [625, 625,625]
+_baseAngles    = [340, 260, 220]   # enter angles from origin to attach point
+_baseMagnitude = [81, 81, 81]
 
 #Platform attachment vectors
-_platformAngles    = [355, 245, 240] # enter angles from origin to attach point
-_platformMagnitude = [625, 625, 625] # enter distance from origin to attach point
+_platformAngles    = [305, 295, 185] # enter angles from origin to attach point
+_platformMagnitude = [81, 81, 81] # enter distance from origin to attach point
 
 #convert to radians and calculate x and y coordinates using sin and cos of angles
 _baseAngles  = [math.radians(x) for x in _baseAngles]
@@ -86,6 +85,7 @@ base_pos     = [[m*math.cos(a),m*math.sin(a),0]  for a,m in zip(_baseAngles,_bas
 
 _platformAngles  = [math.radians(x) for x in _platformAngles]
 platform_pos     = [[m*math.cos(a),m*math.sin(a),0]  for a,m in zip(_platformAngles,_platformMagnitude)]
+
 """
 
 #  uncomment this to enter hard coded coordinates
@@ -103,32 +103,13 @@ platform_pos = [
                  [689.3, -70.0, 0.],  # lower (movable) attachment point
                  [-287.6, -634.1, 0.],
                  [-408.8, -564.1, 0.]
-            ]
-
-platform_min_height = 90 # the min vertical distance between fixed and moving platform 
-platform_mid_height = 210
-platfor_max_height = 330
-
-import numpy as np
-base_pos_n = np.array(base_pos)
-platform_pos_n = np.array(platform_pos)
-
-#  print "\nPlatformOutput using %s configuration" %(PLATFORM_NAME)
-#  print "Actuator lengths: Min %d, Max %d, mid %d" %( MIN_ACTUATOR_LEN, MAX_ACTUATOR_LEN, MID_ACTUATOR_LEN)
-
-#  use actuator length and the distance between attachment points to calculate height extents
-a = np.linalg.norm(base_pos_n[1]-platform_pos_n[1])  # distance between consecutive platform attachmment points
-
-b = MID_ACTUATOR_LEN
-platform_mid_height = math.sqrt(b * b - a * a)  # the mid vertical distance from center to fixed platform
-platform_mid_height = -platform_mid_height;  # negative becuase this is an inverted stewart platform
-# measured midpoint is -715mm
-print "mid height", round(platform_mid_height)
-
+               }
+"""            
+platform_mid_height = 45 # vertical distance in mm between fixed and moving platform in mid position
 
 #  the range in mm or radians from origin to max extent in a single DOF 
-platform_1dof_limits = [100, 122, 140, math.radians(15), math.radians(20), math.radians(12)]
+platform_1dof_limits = [15, 15, 17 , math.radians(15), math.radians(20), math.radians(12)]
 
 # limits at extremes of movement
-platform_6dof_limits = [80, 80, 80, math.radians(12), math.radians(12), math.radians(10)]
+platform_6dof_limits = [10, 10, 10, math.radians(12), math.radians(12), math.radians(10)]
 
