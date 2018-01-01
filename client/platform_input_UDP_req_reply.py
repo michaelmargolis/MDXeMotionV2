@@ -1,6 +1,7 @@
 """
-  platform_input_threadedUDP.py
+  platform_input_UDP_req_reply.py
 
+  Requests data on port 5009
   Receives UDP messages on port 10009
   Move messages are: "xyzrpy,x,y,z,r,p,y,\n"
   xyz are translations in mm, rpy are roatations in radians
@@ -19,11 +20,14 @@ import threading
 from Queue import Queue
 import Tkinter as tk
 import traceback
+import time
 
+isActive = True
 
 class InputInterface(object):
     USE_GUI = True  # set True if using tkInter
     print "USE_GUI", USE_GUI
+
 
     def __init__(self):
         #  set True if input range is -1 to +1
@@ -31,6 +35,7 @@ class InputInterface(object):
         self.expect_degrees = True # convert to radians if True
         self.HOST = "localhost"
         self.PORT = 10009
+        self.REMOTE_PORT = 10010
         if self.is_normalized:
             print 'Platform Input is UDP with normalized parameters'            
         else:
@@ -46,26 +51,21 @@ class InputInterface(object):
         self.master = master
         frame = tk.Frame(master)
         frame.pack()
-        self.label0 = tk.Label(frame, text="Accepting UDP messages on port " + str(self.PORT))
+        self.label0 = tk.Label(frame, text="Sending UDP requests to port " + str(self.REMOTE_PORT))
         self.label0.pack(fill=tk.X, pady=10)
-        if self.is_normalized:
-            t = "Expecting normalized values between -1 and +1"
-        else:
-            limits = self.limits
-            t = format("Expecting x,y,z values as +- %d,%d,%d mm, " % (limits[0], limits[1], limits[2]))
-            if self.expect_degrees:
-                t = t + format(" r,p,y as +- %d, %d, %d degrees" % (degrees(limits[3]), degrees(limits[4]), degrees(limits[5])))
-            else:
-                t = t + format(" r,p,y as +- %.2f, %.2f, %.2f radians" % (limits[3], limits[4], limits[5]))
-            
-        self.units_label = tk.Label(frame, text=t)
-        self.units_label.pack(side="top", pady=10)
+        self.label1 = tk.Label(frame, text="Accepting UDP messages on port " + str(self.PORT))
+        self.label1.pack(fill=tk.X, pady=10)
         
         self.msg_label = tk.Label(frame, text="")
         self.msg_label.pack(side="top", pady=10)
         
         self.cmd_label = tk.Label(frame, text="")
         self.cmd_label.pack(side="top", pady=10)
+
+        self.request_button = tk.Button(root, height=2, width=6, text="Request",
+                                       command=self.service)
+        self.request_button.pack(side=tk.LEFT, padx=(0, 4))
+
 
     def chair_status_changed(self, chair_status):
         print(chair_status[0])
@@ -74,6 +74,7 @@ class InputInterface(object):
         self.cmd_func = cmd_func
         self.move_func = move_func
         self.limits = limits  # note limits are in mm and radians
+        return True
 
     def fin(self):
         # client exit code goes here
@@ -85,6 +86,7 @@ class InputInterface(object):
     def service(self):
         # move request returns translations as mm and angles as radians
         msg = None
+        sock.sendto("request", (UDP_IP, UDP_REMOTE_PORT))
         # throw away all but most recent message
         while not self.inQ.empty():
             msg = self.inQ.get()
@@ -140,3 +142,31 @@ class InputInterface(object):
                 e = sys.exc_info()[0]
                 s = traceback.format_exc()
                 print "listener err", e, s
+
+
+def cmd_func(cmd):
+    print cmd
+
+def move_func(req):
+    print req
+
+if __name__ == "__main__":
+    client = InputInterface()
+    root = tk.Tk()
+    client.init_gui(root)
+    frameRate = 10.05
+    if client.begin(cmd_func, move_func, [100,100,100,1,1,1]) == True: 
+        previous = time.time()        
+        print "starting main service loop"
+        while isActive:
+            root.update_idletasks()
+            root.update()
+            if(time.time() - previous >= frameRate *.99):
+                #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))
+                previous = time.time()
+                client.service()
+        client.fin()
+
+
+
+
