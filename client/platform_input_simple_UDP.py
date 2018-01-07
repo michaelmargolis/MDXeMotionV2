@@ -29,6 +29,7 @@ class InputInterface(object):
         self.client.settimeout(self.timeout)
         self.client.bind((HOST, PORT))
         self.is_normalized = False
+        self.levels = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         print 'Platform Input is UDP with realworld parameters'
 
     def init_gui(self, root):
@@ -41,10 +42,14 @@ class InputInterface(object):
         self.cmd_func = cmd_func
         self.move_func = move_func
         self.limits = limits    # note limits are in mm and radians
+        print "Waiting for UDP message on port", 10009
 
     def fin(self):
         # client exit code goes here
         pass
+
+    def get_current_pos(self):
+        return self.levels
 
     def service(self):
         # block until a message is received from UDP

@@ -21,10 +21,10 @@ sys.path.insert(0, './flight_sim')  # the relative dir containing coaster files
 
 #  from V1_platform_input import InputInterface
 #  from flight_sim_client import InputInterface
-from platform_input_tk import InputInterface   #  tkinter gui
+#  from platform_input_tk import InputInterface   #  tkinter gui
 #  from platform_input import InputInterface    #  keyboard
-#  from platform_input_UDP import InputInterface #  UDP
-#  from platform_input_threadedUDP import InputInterface #  threaded UDP
+#  from platform_input_simple_UDP import InputInterface #  UDP
+from platform_input_threadedUDP import InputInterface #  threaded UDP
 #from coaster_client import InputInterface
 from kinematics import Kinematics
 from shape import Shape
@@ -145,8 +145,8 @@ class Controller:
         start = time.time()
         #  print "req= " + " ".join('%0.2f' % item for item in position_request)
         actuator_lengths = k.inverse_kinematics(position_request)
-        if client.USE_GUI:
-            chair.show_muscles(position_request, actuator_lengths)
+        chair.show_muscles(position_request, actuator_lengths)
+        if client.USE_GUI:   
             controller.update_gui()
         chair.move_platform(actuator_lengths)
 
@@ -196,9 +196,9 @@ def main():
     try:
         if client.USE_GUI:
             root = tk.Tk()
-            if controller.init_gui(root) == False:
+            if controller.init_gui(root) == False:             
                 return  # exit if unable to establish contact with client
-    except NameError:
+    except NameError:    
         client.USE_GUI = False
         print "GUI Disabled"
 
@@ -216,7 +216,7 @@ def main():
     ###controller.disable_platform()
     print "starting main service loop"
     while isActive:
-        if client.USE_GUI:
+        if client.USE_GUI:         
             controller.update_gui()
         if(time.time() - previous >= frameRate *.99):
             #  print format("Frame duration = %.1f" % ((time.time() - previous)*1000))

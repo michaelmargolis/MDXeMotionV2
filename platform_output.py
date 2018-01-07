@@ -28,9 +28,9 @@ if not TESTING:
 """
   Import platform configuration
 """
-from ConfigServo import *
+# from ConfigServo import *
 #  from ConfigV1 import *
-#from ConfigV2 import *
+from ConfigV2 import *
 #  from ConfigServoSim import *
 #  from ConfigServoSimChair import *
 
@@ -38,6 +38,9 @@ PRINT_MUSCLES = False
 PRINT_PRESSURE_DELTA = True
 WAIT_FESTO_RESPONSE = False #True
 OLD_FESTO_CONTROLLER = False
+
+MONITOR_PORT = 10010 # echo actuator lengths to this port
+MONITOR_ADDR = ('localhost', MONITOR_PORT)
 
 if TESTING:
     print "THIS IS TESTING MODE, no output to Festo!!!"
@@ -49,6 +52,7 @@ if PLATFORM_NAME == "SERVO_SIM":
     import serial
 else:
     IS_SERIAL = False
+    print GEOMETRY_TYPE
     if not TESTING:
         if OLD_FESTO_CONTROLLER:
             FST_port = 991
@@ -83,6 +87,11 @@ class OutputInterface(object):
         self.pressure_percent = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         self.prev_time = time.clock()
         self.netlink_ok = False # True if festo responds without error
+        self.ser = None
+        self.monitor_client = None
+        if MONITOR_PORT:       
+            self.monitor_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)              
+            print "platform monitor output on port", MONITOR_PORT
         if IS_SERIAL:
             #  configure the serial connection
             try:
@@ -273,6 +282,14 @@ class OutputInterface(object):
     def show_muscles(self, position_request, muscles):
         if self.use_gui:
            self.gui.show_muscles(position_request, muscles, self.pressure_percent)
+        if self.monitor_client:
+            # echo position requests to monitor port if enabled
+             xyzrpy = ",".join('%0.3f' % item for item in position_request)             
+             lengths = ",".join('%0.1f' % item for item in muscles)        
+             msg = "monitor," + xyzrpy + ',' + lengths +'\n'
+             # send pos as mm and radians, actuator lengths as mm
+             self.monitor_client.sendto(msg, MONITOR_ADDR)
+             print msg
         
     #  private methods
     def _slow_move(self, start, end, duration):
@@ -338,7 +355,7 @@ class OutputInterface(object):
         if payload != self.prevMsg:
             print "lengths: ", payload
             self.prevMsg = payload
-        if self.ser.isOpen():
+        if self.ser and self.ser.isOpen():
             self.ser.write("xyzrpy," + payload + '\n')          
             #  print self.ser.readline()
         else:

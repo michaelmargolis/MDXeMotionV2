@@ -3,7 +3,7 @@
 
   Receives UDP messages on port 10009
   Move messages are: "xyzrpy,x,y,z,r,p,y,\n"
-  xyz are translations in mm, rpy are roatations in radians
+  xyz are translations in mm, rpy are rotations in radians
   however if self.is_normalized is set True, range for all fields is -1 to +1
   
   Command messages are:
@@ -42,24 +42,17 @@ class InputInterface(object):
         t.daemon = True
         t.start()
 
-    def init_gui(self, master):
+    def init_gui(self, master):       
         self.master = master
         frame = tk.Frame(master)
         frame.pack()
         self.label0 = tk.Label(frame, text="Accepting UDP messages on port " + str(self.PORT))
         self.label0.pack(fill=tk.X, pady=10)
-        if self.is_normalized:
-            t = "Expecting normalized values between -1 and +1"
-        else:
-            limits = self.limits
-            t = format("Expecting x,y,z values as +- %d,%d,%d mm, " % (limits[0], limits[1], limits[2]))
-            if self.expect_degrees:
-                t = t + format(" r,p,y as +- %d, %d, %d degrees" % (degrees(limits[3]), degrees(limits[4]), degrees(limits[5])))
-            else:
-                t = t + format(" r,p,y as +- %.2f, %.2f, %.2f radians" % (limits[3], limits[4], limits[5]))
-            
+
+        """ 
         self.units_label = tk.Label(frame, text=t)
         self.units_label.pack(side="top", pady=10)
+        """
         
         self.msg_label = tk.Label(frame, text="")
         self.msg_label.pack(side="top", pady=10)
@@ -72,8 +65,7 @@ class InputInterface(object):
 
     def begin(self, cmd_func, move_func, limits):
         self.cmd_func = cmd_func
-        self.move_func = move_func
-        self.limits = limits  # note limits are in mm and radians
+        self.move_func = move_func       
 
     def fin(self):
         # client exit code goes here
@@ -81,6 +73,9 @@ class InputInterface(object):
         
     def get_current_pos(self):
         return self.levels
+
+    def intensity_status_changed(self, status):
+        pass
 
     def service(self):
         # move request returns translations as mm and angles as radians

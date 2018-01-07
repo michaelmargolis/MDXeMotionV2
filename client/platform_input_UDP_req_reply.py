@@ -1,7 +1,7 @@
 """
   platform_input_UDP_req_reply.py
 
-  Requests data on port 5009
+  Requests data on port 10009
   Receives UDP messages on port 10009
   Move messages are: "xyzrpy,x,y,z,r,p,y,\n"
   xyz are translations in mm, rpy are roatations in radians

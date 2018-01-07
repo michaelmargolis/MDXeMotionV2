@@ -67,6 +67,7 @@ platform_pos     = [[m*math.cos(a),m*math.sin(a),0]  for a,m in zip(_platformAng
 #  input x and y coordinates with origin as center of the base plate
 #  the z value should be zero for both base and platform
 #  only left side is needed as other side is symmetrical
+GEOMETRY_TYPE = "Using geometry values for V1 platform"
 base_pos     = [
                  [171, 553, 0],  # first upper attachment point
                  [ 65, 555, 0],
