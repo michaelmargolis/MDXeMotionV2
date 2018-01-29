@@ -66,6 +66,17 @@ class OutputGui(object):
         self.chair_top_img = ImageTk.PhotoImage(self.chair_top.rotate(0))
         self.top_canvas_obj = self.chair_img_canvas.create_image(
                 130, 50, image=self.chair_top_img)
+        
+        self.draw_crosshair( self.chair_side_img, 25, 105)  
+        self.draw_crosshair( self.chair_front_img, 155, 105)
+        self.draw_crosshair( self.chair_top_img, 95, 20)
+
+        
+    def draw_crosshair(self, obj, x, y):
+        w =  obj.width()
+        h =  obj.height()      
+        self.chair_img_canvas.create_line(x + w/2, y, x + w/2, y + h, dash=(4, 2))
+        self.chair_img_canvas.create_line(x, y+h/2, x + w, y+h/2, dash=(4, 2))
 
     def show_muscles(self, position_request, muscles, pressure_percent):
         for idx, m in enumerate(muscles):
@@ -105,6 +116,10 @@ class OutputGui(object):
         self.chair_top_img = ImageTk.PhotoImage(self.chair_top.rotate(y))
         self.top_canvas_obj = self.chair_img_canvas.create_image(
             130 + x, 50 + y, image=self.chair_top_img)
+            
+        self.draw_crosshair( self.chair_side_img, 25, 105)  
+        self.draw_crosshair( self.chair_front_img, 155, 105)
+        self.draw_crosshair( self.chair_top_img, 95, 20)
 
         info = "Orientation: X=%-4d Y=%-4d Z=%-4d  Roll=%-3d Pitch=%-3d Yaw=%-3d" % (pos[0], pos[1], pos[2], r, p, y)
         self.request_fields_lbl.config(text=info)
