@@ -11,7 +11,9 @@ import time
 import ctypes
 import tkMessageBox
 
-from coaster_interface import CoasterInterface
+#from coaster_interface import CoasterInterface
+from nl2_interface import CoasterInterface
+
 from coaster_gui import CoasterGui
 from coaster_state import ConnectStatus, RideState
 from serial_remote import SerialRemote
@@ -272,12 +274,17 @@ class InputInterface(object):
 
         self.gui.process_state_change(new_state, self.is_chair_activated)
 
-    def load_park(self, isPaused, park):
-        print "load park", park
+    def load_park(self, isPaused, park, seat):
+
+        print "load park", park, "seat",seat
         self.coasterState.coaster_event(CoasterEvent.RESETEVENT) 
         self.gui.set_coaster_connection_label(("loading: " + park, "orange"))
         self._sleep_func(2)
-        self.coaster.load_park( isPaused, park)
+        self.coaster.load_park(isPaused, park)
+        while self.coaster.check_coaster_status(ConnectStatus.is_in_play_mode) == False:
+            self.service()
+        print "selecting seat", seat
+        self.coaster.select_seat(int(seat))
         self.coasterState.coaster_event(CoasterEvent.STOPPED)
 
     def fin(self):
@@ -332,9 +339,11 @@ class InputInterface(object):
                 self.gui.set_coaster_connection_label(("No connection to NoLimits, is it running?", "red"))
                 self._sleep_func(1)
             return False
-        elif not self.coaster.check_coaster_status(ConnectStatus.is_in_play_mode):
-            print "!!!NL2 not in play mode"
-            return False
+            """    
+            elif not self.coaster.check_coaster_status(ConnectStatus.is_in_play_mode):
+                print "!!!NL2 not in play mode"
+                return False
+            """
         else:
             #  print "All connections ok"
             # self.coasterState.coaster_event(CoasterEvent.STOPPED)
@@ -369,6 +378,7 @@ class InputInterface(object):
     def service(self):
         self.RemoteControl.service()
         if self.connect():
+            self.coaster.service()
             status  = self.coaster.get_coaster_status()
             self.gui.set_coaster_connection_label((status[1], status[2]))
             input_field = self.coaster.get_telemetry()

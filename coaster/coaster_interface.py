@@ -88,21 +88,7 @@ class CoasterInterface():
 
     def begin(self):
         return
-        """
-        print "todo remove following"
-        return True
-        print "3 in coaster interface begin"
-        if self.connect_to_coaster(ip_addr):
-            # print "connect_to_coaster returned True"
-            self.get_telemetry()
-            #  print "telemetry flags = ", self._telemetry_state_flags
-            if self._telemetry_state_flags & 1:
-                return True
-        else:
-            #  print "coaster status mask:", self.coaster_status
-            return False
-        """
- 
+
     def connect_to_coaster(self, coaster_ip_addr):
         # returns true iff connected to NL2 derver socket and in play mode
         if self.check_coaster_status(ConnectStatus.is_pc_connected) == False:
@@ -142,10 +128,11 @@ class CoasterInterface():
         return (True, "Receiving NoLimits Telemetry", "green3")
 
     def send(self, r):
+        #  print "sending:", r
         try:
             self.client.sendall(r)
         except:
-            e = sys.exc_info()[0]  # report error           
+            e = sys.exc_info()[0]  # report error
             # print e
 
     def dispatch(self):
@@ -162,8 +149,7 @@ class CoasterInterface():
         msg = pack('>ii', 0, 0)  # coaster, station
         r = self._create_NL2_message(self.N_MSG_GET_STATION_STATE, self.N_MSG_GET_STATION_STATE, msg)
         #  print "get station state msg", self.N_MSG_GET_STATION_STATE,  binascii.hexlify(msg),len(msg), "full", binascii.hexlify(r)
-        self.send(r)       
-        #  self._process_station_state_msgs()
+        self.send(r)
         self._process_telemtry_msgs()
         #  print "station status", self.station_status
         if self.coaster_status != 7: # connected and in play mode
@@ -238,15 +224,14 @@ class CoasterInterface():
         try:
             data = self.client.recv(self.coaster_buffer_size)
             if data: #and len(data) >= 10:
-                #print "data len",len(data)
+                #print "telemetry data len",len(data)
                 msg, requestId, size = (unpack('>HIH', data[1:9]))
-                # print msg, requestId, size
+                #  print "telemetry msg: ", msg, requestId, size
                 if msg == self.N_MSG_VERSION:
                     v0, v1, v2, v3 = unpack('cccc', data[self.c_nExtraSizeOffset:self.c_nExtraSizeOffset+4])
                     self.nl2_verson = format("%c.%c.%c.%c" % (chr(ord(v0)+48),chr(ord(v1)+48),chr(ord(v2)+48), chr(ord(v3)+48)))
                     print 'NL2 version', self.nl2_verison
                     self.set_coaster_status(ConnectStatus.is_nl2_connected, True)
-                    #self.send(self._create_simple_message(self.N_MSG_GET_TELEMETRY, self.N_MSG_GET_TELEMETRY))
                 elif msg == self.N_MSG_STATION_STATE:
                     s = unpack('>I', data[self.c_nExtraSizeOffset:self.c_nExtraSizeOffset+4])
                     #  print format( "in telemetry, got station state msg %x" % (s[0]))
@@ -271,13 +256,12 @@ class CoasterInterface():
                     self.set_coaster_status(ConnectStatus.is_nl2_connected, True)
                     pass
                 elif msg == self.N_MSG_ERROR:
-                    self.telemetry_status_ok = False     
+                    self.telemetry_status_ok = False
                     self.telemetry_err_str = data[self.c_nExtraSizeOffset: self.c_nExtraSizeOffset+size]
                     print "telemetry err:", self.telemetry_err_str
                     #if "Not in play mode" in self.telemetry_err_str:
                     #self.is_play_mode = False
                     #self.set_coaster_status(ConnectStatus.is_nl2_connected, True)
-                    #self.set_coaster_status(ConnectStatus.is_in_play_mode, False)
                 else:
                     print 'unhandled message', msg
         except socket.error:
@@ -307,19 +291,35 @@ class CoasterInterface():
         #  print msg
         r = self._create_extended_NL2_message(self.N_MSG_LOAD_PARK, 43981, msg, len(path)+1)
         #  print "load park r", binascii.hexlify(r),"msg=", binascii.hexlify(msg)
+        self.set_coaster_status(ConnectStatus.is_in_play_mode, False)
         self.send(r)
 
         while True:
-            self.get_telemetry()
-            #  print self._telemetry_state_flags & 1
+            print self._telemetry_state_flags & 1,  self.get_coaster_status()
             print ".",
-            sleep(1)
-            if self.check_coaster_status(ConnectStatus.is_in_play_mode):
+            sleep(2)
+            self.get_telemetry()
+            if self.telemetry_status_ok  and  self.check_coaster_status(ConnectStatus.is_in_play_mode):
             # was if self._telemetry_state_flags & 1: # test if in play mode
+                print "Setting manual mode"
                 self.set_manual_mode()
+                sleep(1)
                 if self._get_station_status(bit_manual):
+                   print "resetting Park"
+                   while self.telemetry_status_ok != True: 
+                       self.get_telemetry()
+                       print '?'
                    self.reset_park(True)
+                   while self.telemetry_status_ok != True: 
+                       self.get_telemetry()
+                       print '?'
                    print "\nset manual mode and reset park"
+                   """
+                   sleep(1)
+                   print "here wha", self.get_coaster_status(), self.check_coaster_status(ConnectStatus.is_in_play_mode)
+                   while self.check_coaster_status(ConnectStatus.is_in_play_mode) == False:
+                       print "wha", self.get_coaster_status()
+                   """
                    break
 
     def close_park(self):
@@ -359,14 +359,6 @@ class CoasterInterface():
 
     def is_in_play_mode(self):
         return self.check_coaster_status(ConnectStatus.is_in_play_mode)
-        """
-        print "todo remove telemetry_state_flags and change is_in_play to use bitmap, returning ", (self._telemetry_state_flags & 1) != 0
-        #print repr(traceback.extract_tb(exc_traceback))
-        #sys.exit()
-        return (self._telemetry_state_flags & 1) != 0
-        
-        """
-        
 
     def _process_telemetry_msg(self, msg):
         """
@@ -425,7 +417,7 @@ class CoasterInterface():
                 
                 #  y from coaster is vertical
                 #  z forward
-                #  x side               
+                #  x side
                 if msg.posY > self.lift_height:
                    self.lift_height = msg.posY
                 surge = max(min(1.0, msg.gForceZ), -1)

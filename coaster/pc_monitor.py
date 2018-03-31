@@ -39,7 +39,7 @@ class pc_monitor_client():
         # returns tuple of: IP address of server, temperature strings, warning level(0-2) 
         # IP address will be "" if no heartbeat available
         payload = None
-        status = ""
+        status = "?"
         addr = ("", 0)
         warning_level = 0
         # throw away all but most recent message

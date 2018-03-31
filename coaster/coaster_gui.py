@@ -22,6 +22,7 @@ class CoasterGui(object):
         self.quit = quit_callback
         self.park_path = []
         self.park_name = []
+        self.seat = []
         self._park_callback = None
 
     def init_gui(self, master):
@@ -55,6 +56,11 @@ class CoasterGui(object):
             self.park_listbox["values"] = self.park_name
             self.park_listbox.bind("<<ComboboxSelected>>", lambda _ : self._park_by_index(self.park_listbox.current()))
             self.park_listbox.current(0)
+
+            # self.set_seat_button = tk.Button(label_frame, height=1, width=10, text="seat preset", command=self.preset_seat)
+            # self.set_seat_button.grid(row=0, column=1)
+
+
         self.coaster_status_label = tk.Label(label_frame, text="Waiting for Coaster Status", font=(None, 24),)
         self.coaster_status_label.grid(row=1, columnspan=2, ipadx=16, sticky=tk.W)
 
@@ -102,7 +108,10 @@ class CoasterGui(object):
     def set_seat(self, seat):
         if seat != '':
            print "seat", int(seat)
-
+    """
+    def preset_seat(self):
+        print "preset seat"
+    """
     """
     def set_focus(self):
         # not used in this version
@@ -117,10 +126,13 @@ class CoasterGui(object):
             path = os.path.abspath('CoasterParks/parks.cfg')
             print path
             with open(path) as f:
-                self.park_path = f.read().splitlines()
-                for park in self.park_path:
+                parks = f.read().splitlines()
+                for park in parks:
+                    p = park.split(',')
+                    self.park_path.append(p[0]) 
+                    self.seat.append(p[1])
                     #  print park
-                    p = park.split('/')
+                    p = p[0].split('/')
                     p = p[len(p)-1]
                     #  print p,
                     self.park_name.append(p.split('.')[0])
@@ -138,7 +150,7 @@ class CoasterGui(object):
         if self._park_callback != None:
             print "loading park", self.park_name[idx]
             # load park in pause mode, this will unpuase when park is loaded
-            self._park_callback(True, self.park_path[idx])
+            self._park_callback(True, self.park_path[idx], self.seat[idx])
 
     def get_selected_park(self): 
         return None
