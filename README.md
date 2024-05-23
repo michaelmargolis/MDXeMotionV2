@@ -1,6 +1,6 @@
 # Python Motion Platform Controller
 This software enables a motion simulator or other client to control movement of version 2 of the Middlesex University motion platform.
-<img align="right" src="https://github.com/michaelmargolis/MDXeMotionV2/tree/master/docs/Chair-at-New-Scientis_small.png">
+![Motion Platform at New Scientist Live](https://github.com/michaelmargolis/MDXeMotionV2/tree/master/docs/Chair-at-New-Scientis_small.png)
 
 ### Platform Hardware Overview
 The motion platform is an inverted Stewart platform. It has a fixed base and a moving platform connected with six pneumatic actuators. Adjusting the lengths of the actuators moves the platform in six degrees of freedom (front/back, left/right, up/down, roll, pitch and yaw).
