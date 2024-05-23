@@ -55,8 +55,8 @@ You only need enter values for the left side, the other side is a mirror image a
 import math
 
 PLATFORM_NAME = "Chair v2"
-GEOMETRY_ORIGINAL = False
-GEOMETRY_AS_BUILT = True 
+GEOMETRY_ORIGINAL = True
+GEOMETRY_AS_BUILT = False 
 GEOMETRY_IDEAL = False
 
 
